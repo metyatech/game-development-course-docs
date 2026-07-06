@@ -1,0 +1,5 @@
+{
+    "sources": ["github:metyatech/agent-rules"],
+    "profile": "course-docs",
+    "output": "AGENTS.md"
+}
