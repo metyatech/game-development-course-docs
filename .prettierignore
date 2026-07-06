@@ -1,0 +1,13 @@
+AGENTS.md
+agent-rules-private/
+node_modules/
+.mwt/
+.threads.jsonl
+package-lock.json
+content/**/*.md
+content/**/*.mdx
+dist/
+build/
+.next/
+out/
+public/_pagefind/
