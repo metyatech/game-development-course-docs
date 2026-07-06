@@ -45,6 +45,9 @@ If `course-docs-site` is not in the same workspace, set `COURSE_DOCS_SITE_DIR` i
 
 Automatic discovery looks for a local checkout named `course-docs-site` while walking up parent directories from this repository.
 
+This repository follows the same local-checkout flow used by the GitHub Actions deploy workflow.
+`course-docs-site` always reads this repo from a checked-out local path rather than `github:owner/repo#ref`.
+
 ## Project files
 
 - `content/`: course pages (MDX)
@@ -52,9 +55,18 @@ Automatic discovery looks for a local checkout named `course-docs-site` while wa
 - `public/`: static files (for example, images under `public/img/**`)
 - `site.config.ts`: per-course site configuration consumed by `course-docs-site`
 
-## Release / deploy
+## Deploy (Vercel)
 
-This repository does not deploy by itself. If a public course site is needed later, configure deployment through the shared `metyatech/course-docs-site` workflow pattern.
+Deployment is done via GitHub Actions using the Vercel CLI (no Vercel GitHub integration).
+See `.github/workflows/deploy-vercel.yml`.
+The workflow checks out this repository into `course-content` and points
+`COURSE_CONTENT_SOURCE` at `../course-content`.
+
+Required GitHub Actions secrets:
+
+- `VERCEL_TOKEN` (a Vercel access token with access to the target project/team)
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
 
 ## Related docs
 
