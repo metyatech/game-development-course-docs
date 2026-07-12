@@ -1,0 +1,884 @@
+---
+title: NIGHT ESCAPE 1：警備中のハンターから逃げろ！
+authoringMode: tutorial
+---
+
+プレイヤーが警備エリアへ入ると、巡回中のハンターがこちらへ走ってきます。
+
+このページでは、ハンターが歩く道を設定し、2つの地点を巡回する動きと、プレイヤーを発見して追いかける動きを作ります。最後に、壁、巡回地点、警戒エリアの配置を整えて、ハンターに追われるステージを作ります。
+
+<Prerequisites>
+
+- Unreal Engine 5でThird PersonのBlueprintプロジェクトを開ける
+- Actorをレベルへ配置し、移動・回転・拡大縮小を操作できる
+- Blueprintを複製し、名前を変更できる
+- Event Graphへノードを配置し、ピンを接続できる
+- BlueprintをCompile、Saveできる
+
+</Prerequisites>
+
+<Checkpoint title="今回の完成条件">
+
+- ハンターが2つの巡回地点を往復する
+- プレイヤーが警戒エリアへ入ると、ハンターのライトが赤色へ変わる
+- ハンターが巡回からプレイヤーの追跡へ切り替わる
+- ハンターが壁を回り込みながらプレイヤーへ向かう
+- 壁、巡回地点、警戒エリアを配置し、ハンターに追われるステージが完成する
+
+</Checkpoint>
+
+---
+
+<Section title="ゲーム用のレベルを用意する" goal="NIGHT ESCAPE専用のフォルダとレベルを用意できるようになります。">
+
+Third Personテンプレートのレベルをもとに、今回のゲーム専用レベルを作ります。
+
+<Action title="ゲーム用のフォルダを作る">
+
+コンテンツドロワーの`Content`直下に、`NightEscape`フォルダを作ります。
+
+`NightEscape`の中に、次の2つのフォルダを作ります。
+
+```text
+Content/
+└── NightEscape/
+    ├── Blueprints/
+    └── Maps/
+```
+
+</Action>
+
+<Action title="現在のレベルを別名で保存する">
+
+メニューから`File`→`Save Current Level As...`を選びます。
+
+保存先に`Content/NightEscape/Maps`を選び、レベル名を次のように入力します。
+
+```text
+L_NightEscape
+```
+
+保存後は、`L_NightEscape`を開いた状態で作業を進めます。テンプレートの元のレベルもプロジェクト内に残ります。
+
+</Action>
+
+<Verify title="レベルの保存結果を確認する">
+
+次の状態になれば成功です。
+
+- `Maps`フォルダ内に`L_NightEscape`が表示される
+- エディタ上部に`L_NightEscape`と表示される
+- Playするとプレイヤーキャラクターを操作できる
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="警備エリアの土台を作る" goal="巡回と追跡の動きを確認できる警備エリアを作れるようになります。">
+
+ハンターの動きを確認しやすいように、床とCubeで短い警備エリアを作ります。
+
+完成形は、入口から奥へ進む途中に曲がり角があり、その奥をハンターが巡回する形です。
+
+```text
+             巡回地点B
+                 │
+                 │
+                 └──── 巡回地点A
+                       ┌───────┐
+                       │  壁   │
+                       └───────┘
+
+                  警戒エリア
+
+                    プレイヤー
+```
+
+<Action title="入口と奥の空間を作る">
+
+Third Personテンプレートの床を使い、プレイヤーが開始する入口と、ハンターが巡回する奥の空間を決めます。
+
+入口から奥の空間まで歩ける距離を確保します。
+
+</Action>
+
+<Action title="Cubeで壁を作る">
+
+Cubeを追加し、壁として使います。
+
+壁の横に、プレイヤーとハンターが通れる通路を作ります。通路を一度曲がる形にすると、ハンターが壁を回り込む動きを確認しやすくなります。
+
+</Action>
+
+<Verify title="警備エリアの形を確認する">
+
+次の場所が用意できれば成功です。
+
+- プレイヤーが立つ入口
+- ハンターが巡回する奥の空間
+- 入口と奥の間にある壁
+- 壁の横を通る通路
+- プレイヤーが入口へ戻って逃げられる空間
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="ハンターが走れる道を設定する" goal="Navigation Meshを設定し、ハンターが移動できる範囲を確認できるようになります。">
+
+<Concept title="ハンターが道を探すための範囲">
+
+ハンターが目的地まで移動するときは、床や壁の形をもとに通れる道を探します。
+
+ハンターが道を探して移動できる範囲を、Navigation Meshと呼びます。エディタでは、移動できる床が緑色で表示されます。
+
+</Concept>
+
+<Action title="Nav Mesh Bounds Volumeを配置する">
+
+Place Actorsで`Nav Mesh Bounds Volume`を検索し、レベルへ配置します。
+
+Volumeを移動・拡大し、今回使う床全体を覆います。高さ方向にも床が含まれるように調整します。
+
+</Action>
+
+<Action title="ハンターが走れる範囲を表示する">
+
+ビューポートをクリックしてから`P`キーを押します。
+
+床の上に緑色の範囲が表示されます。
+
+</Action>
+
+<Verify title="壁の周囲に道がつながっているか確認する">
+
+次の状態になれば成功です。
+
+- 使用する床が緑色になる
+- 壁がある場所では、壁の形に沿って緑色の範囲が分かれる
+- 壁の横に緑色の通路がつながっている
+- 入口から奥の空間まで緑色の経路が続いている
+
+</Verify>
+
+<Recovery title="緑色の範囲を表示する">
+
+緑色の範囲を表示するために、次を順番に確認します。
+
+1. `Nav Mesh Bounds Volume`をレベルへ配置する
+2. Volumeの中に床を含める
+3. 床の上面までVolumeの高さを広げる
+4. 床のCollisionを有効にする
+5. ビューポートを選択して`P`キーを押す
+
+</Recovery>
+
+<Checkpoint title="理解度確認1">
+
+`P`キーを押したときに表示される緑色の範囲は、何を表していますか。
+
+<details>
+<summary>ヒント1</summary>
+
+ハンターが移動するときに使用する範囲です。
+
+</details>
+
+<details>
+<summary>ヒント2</summary>
+
+ハンターは、この範囲の中で目的地までの道を探します。
+
+</details>
+
+<details>
+<summary>答え</summary>
+
+ハンターが道を探して移動できる範囲です。
+
+</details>
+
+</Checkpoint>
+
+</Section>
+
+---
+
+<Section title="ハンターを作る" goal="プレイヤーキャラクターをもとに、自動で動くハンターを作れるようになります。">
+
+<Action title="プレイヤーキャラクターを複製する">
+
+コンテンツドロワーで`BP_ThirdPersonCharacter`を探します。
+
+`BP_ThirdPersonCharacter`を複製し、次の場所へ移動します。
+
+```text
+Content/NightEscape/Blueprints/
+```
+
+名前を次のように変更します。
+
+```text
+BP_Hunter
+```
+
+</Action>
+
+<Action title="入力用のノードを整理する">
+
+`BP_Hunter`を開き、Event Graphにあるプレイヤー入力用のノードを確認します。
+
+Move、Look、Jumpに関係する入力イベントと、そのイベントからつながるノード群を削除します。
+
+ハンターの移動は、この後に作るAIの処理から実行します。
+
+</Action>
+
+<Action title="AIControllerの設定をする">
+
+`BP_Hunter`のClass Defaultsを開き、次の項目を設定します。
+
+| 項目 | 値 |
+| --- | --- |
+| `AI Controller Class` | `AIController` |
+| `Auto Possess AI` | `Placed in World or Spawned` |
+
+この設定により、レベルへ配置した`BP_Hunter`をAIControllerが操作します。
+
+</Action>
+
+<Action title="ハンターのライトを追加する">
+
+Componentsパネルで`Point Light`を追加し、名前を次のように変更します。
+
+```text
+HunterLight
+```
+
+`HunterLight`をハンターの頭や胸の近くへ移動します。
+
+巡回中の色として、白、黄色、青などから見やすい色を設定します。プレイヤーキャラクターとハンターを見分けられる明るさに調整します。
+
+</Action>
+
+<Action title="ハンターをレベルへ配置する">
+
+`BP_Hunter`を警備エリアの奥へ配置します。
+
+ハンターの足が床の上に乗る高さへ調整します。
+
+</Action>
+
+<Verify title="ハンターの初期状態を確認する">
+
+Playして、次を確認します。
+
+- プレイヤーとは別のキャラクターが警備エリアの奥にいる
+- `HunterLight`の光でハンターの位置が分かる
+- ハンターが配置した場所に立っている
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="2つの巡回地点を置く" goal="ハンターが往復する2つの目的地をレベルへ配置できるようになります。">
+
+<Concept title="位置を表すTarget Point">
+
+Target Pointは、レベル内の位置を表すActorです。
+
+今回は、ハンターが巡回するときの目的地として2つのTarget Pointを使います。
+
+</Concept>
+
+<Action title="Target Pointを2つ配置する">
+
+Place Actorsで`Target Point`を検索し、警備エリアの奥へ2つ配置します。
+
+World Outlinerで、名前を次のように変更します。
+
+```text
+PatrolPointA
+PatrolPointB
+```
+
+</Action>
+
+<Action title="巡回経路を作る">
+
+`PatrolPointA`と`PatrolPointB`を離して配置します。
+
+ハンターが壁や通路の形に沿って移動するように、2地点の間へ壁や曲がり角を入れます。
+
+Target Pointの位置は、緑色のNavigation Mesh上に合わせます。
+
+</Action>
+
+<Verify title="巡回地点の位置を確認する">
+
+次の状態になれば成功です。
+
+- `PatrolPointA`と`PatrolPointB`がレベル上にある
+- 2つの地点が緑色の範囲内にある
+- 2つの地点の間に緑色の経路がつながっている
+- ハンターが2地点の近くに配置されている
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="巡回地点をハンターへ設定する" goal="レベル上の巡回地点をBP_Hunterの変数へ割り当てられるようになります。">
+
+<Action title="巡回地点の変数を作る">
+
+`BP_Hunter`に次の変数を作ります。
+
+| 変数名 | 型 |
+| --- | --- |
+| `PatrolPointA` | `Target Point Object Reference` |
+| `PatrolPointB` | `Target Point Object Reference` |
+
+2つの変数で、Instance Editableを有効にします。
+
+</Action>
+
+<Action title="プレイヤー追跡中の状態を表す変数を作る">
+
+Boolean型の変数を作り、名前を次のようにします。
+
+```text
+IsChasingPlayer
+```
+
+初期値は`false`です。
+
+`IsChasingPlayer`は、ハンターがプレイヤーを追いかけている状態を保存します。
+
+- `false`：巡回地点を往復する
+- `true`：プレイヤーを追いかける
+
+</Action>
+
+<Action title="レベル上の巡回地点を割り当てる">
+
+Compileしてからレベルへ戻り、レベル上の`BP_Hunter`を選択します。
+
+Detailsに表示される変数へ、次のActorを割り当てます。
+
+| 変数 | 割り当てるActor |
+| --- | --- |
+| `PatrolPointA` | レベル上の`PatrolPointA` |
+| `PatrolPointB` | レベル上の`PatrolPointB` |
+
+</Action>
+
+<Verify title="ハンターの変数を確認する">
+
+レベル上の`BP_Hunter`を選択したとき、Detailsに次の組み合わせが表示されれば成功です。
+
+- `PatrolPointA`：`PatrolPointA`
+- `PatrolPointB`：`PatrolPointB`
+- `IsChasingPlayer`：オフ
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="ハンターを巡回させる" goal="AI MoveToを使い、ハンターを2地点の間で往復させられるようになります。">
+
+<Concept title="AI MoveToで目的地へ向かう">
+
+`AI MoveTo`は、AIControllerが操作するキャラクターを、指定したActorや位置へ移動させるノードです。
+
+今回は、`PatrolPointA`と`PatrolPointB`を交互に目的地へ設定します。
+
+</Concept>
+
+<Action title="巡回地点Aへ移動するイベントを作る">
+
+`BP_Hunter`のEvent GraphへCustom Eventを追加し、名前を次のようにします。
+
+```text
+MoveToPatrolPointA
+```
+
+`Branch`と`AI MoveTo`を追加し、次のように接続します。
+
+```text
+MoveToPatrolPointA
+    ↓
+Branch
+Condition: IsChasingPlayer
+
+False
+    ↓
+AI MoveTo
+Pawn: Self
+Target Actor: PatrolPointA
+Acceptance Radius: 50
+```
+
+`IsChasingPlayer`が`false`のとき、ハンターは`PatrolPointA`へ向かいます。
+
+</Action>
+
+<Action title="巡回地点Bへ移動するイベントを作る">
+
+Custom Eventを追加し、名前を次のようにします。
+
+```text
+MoveToPatrolPointB
+```
+
+次のように接続します。
+
+```text
+MoveToPatrolPointB
+    ↓
+Branch
+Condition: IsChasingPlayer
+
+False
+    ↓
+AI MoveTo
+Pawn: Self
+Target Actor: PatrolPointB
+Acceptance Radius: 50
+```
+
+</Action>
+
+<Action title="2つの巡回イベントをつなぐ">
+
+`MoveToPatrolPointA`内の`AI MoveTo`で、`On Success`から`MoveToPatrolPointB`を呼び出します。
+
+`MoveToPatrolPointB`内の`AI MoveTo`で、`On Success`から`MoveToPatrolPointA`を呼び出します。
+
+```text
+PatrolPointAへ到着
+    ↓
+MoveToPatrolPointB
+    ↓
+PatrolPointBへ到着
+    ↓
+MoveToPatrolPointA
+```
+
+</Action>
+
+<Action title="ゲーム開始時に巡回を始める">
+
+`Event BeginPlay`から`MoveToPatrolPointA`を呼び出します。
+
+```text
+Event BeginPlay
+    ↓
+MoveToPatrolPointA
+```
+
+CompileしてSaveします。
+
+</Action>
+
+<Verify title="2地点の往復を確認する">
+
+Playして、次の順番を確認します。
+
+1. ハンターが`PatrolPointA`へ向かう
+2. `PatrolPointA`へ着くと`PatrolPointB`へ向かう
+3. `PatrolPointB`へ着くと`PatrolPointA`へ戻る
+4. ハンターが壁や曲がり角に沿って移動する
+5. 2地点の往復が続く
+
+</Verify>
+
+<Recovery title="ハンターを巡回させる">
+
+巡回を開始するために、次を順番に確認します。
+
+1. ハンターと2つのTarget Pointを緑色の範囲内へ置く
+2. レベル上の`BP_Hunter`へ2つの巡回地点を割り当てる
+3. `AI MoveTo`の`Pawn`へ`Self`を接続する
+4. `Target Actor`へ対応する巡回地点の変数を接続する
+5. `On Success`から反対側の巡回イベントを呼び出す
+6. `Event BeginPlay`から`MoveToPatrolPointA`を呼び出す
+7. CompileしてSaveする
+
+</Recovery>
+
+<Checkpoint title="理解度確認2">
+
+`MoveToPatrolPointA`内の`AI MoveTo`で、`Target Actor`へ接続する変数名を答えてください。
+
+<details>
+<summary>ヒント</summary>
+
+巡回地点Aを保存している変数を使います。
+
+</details>
+
+<details>
+<summary>答え</summary>
+
+`PatrolPointA`
+
+</details>
+
+</Checkpoint>
+
+</Section>
+
+---
+
+<Section title="プレイヤーを発見する警戒エリアを作る" goal="プレイヤーが通過したときにハンターへ追跡開始を伝えるActorを作れるようになります。">
+
+<Action title="警戒エリアのBlueprintを作る">
+
+`Blueprint Class`から`Actor`を選び、次のBlueprintを作ります。
+
+```text
+BP_AlertZone
+```
+
+保存先は次の場所です。
+
+```text
+Content/NightEscape/Blueprints/
+```
+
+</Action>
+
+<Action title="AlertCollisionを追加する">
+
+`BP_AlertZone`へ`Box Collision`を追加し、名前を次のように変更します。
+
+```text
+AlertCollision
+```
+
+`Collision Presets`を`OverlapOnlyPawn`に設定し、`Generate Overlap Events`を有効にします。
+
+Boxの大きさは、プレイヤーが通る通路の幅に合わせます。
+
+</Action>
+
+<Action title="対象ハンターの変数を作る">
+
+`BP_AlertZone`に変数を作ります。
+
+| 変数名 | 型 |
+| --- | --- |
+| `Hunter` | `BP_Hunter Object Reference` |
+
+`Hunter`でInstance Editableを有効にします。
+
+この変数へ、警戒エリアが動かすハンターを割り当てます。
+
+</Action>
+
+<Action title="警戒エリアをレベルへ配置する">
+
+`BP_AlertZone`を、入口から警備エリアへ進む通路へ配置します。
+
+レベル上の`BP_AlertZone`を選択し、Detailsの`Hunter`へレベル上の`BP_Hunter`を割り当てます。
+
+</Action>
+
+<Verify title="警戒エリアの配置を確認する">
+
+次の状態になれば成功です。
+
+- `BP_AlertZone`が通路を横切る位置にある
+- プレイヤーが通路を進むと`AlertCollision`の中を通る
+- Detailsの`Hunter`へレベル上の`BP_Hunter`が設定されている
+- Playするとハンターの巡回が続く
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="巡回からプレイヤーの追跡へ切り替える" goal="警戒エリアへ入ったプレイヤーをハンターが追いかけるようにできます。">
+
+<Action title="プレイヤーの追跡を開始するイベントを作る">
+
+`BP_Hunter`へCustom Eventを追加し、名前を次のようにします。
+
+```text
+StartChasingPlayer
+```
+
+イベントの先頭で、`IsChasingPlayer`を`true`へ設定します。
+
+```text
+StartChasingPlayer
+    ↓
+Set IsChasingPlayer
+Value: true
+```
+
+</Action>
+
+<Action title="ハンターのライトを赤色へ変える">
+
+Componentsパネルから`HunterLight`をEvent Graphへドラッグします。
+
+`Set Light Color`を追加し、`New Light Color`を赤色へ設定します。
+
+```text
+Set IsChasingPlayer
+    ↓
+Set Light Color
+Target: HunterLight
+New Light Color: 赤
+```
+
+ライトの色で、ハンターの行動が巡回から追跡へ変わったことを表します。
+
+</Action>
+
+<Action title="プレイヤーへ向かわせる">
+
+`AI MoveTo`と`Get Player Character`を追加します。
+
+次のように接続します。
+
+| `AI MoveTo`のピン | 接続・値 |
+| --- | --- |
+| `Pawn` | `Self` |
+| `Target Actor` | `Get Player Character`の`Return Value` |
+| `Acceptance Radius` | `80` |
+| `Stop on Overlap` | 有効 |
+
+実行ピンは、`Set Light Color`から`AI MoveTo`へ接続します。
+
+`Target Actor`にプレイヤーキャラクターを指定すると、ハンターは移動するプレイヤーの位置へ向かい続けます。
+
+</Action>
+
+<Action title="警戒エリアから追跡を開始する">
+
+`BP_AlertZone`のEvent Graphで、`AlertCollision`の`On Component Begin Overlap`を追加します。
+
+`Other Actor`を`Cast To BP_ThirdPersonCharacter`の`Object`へ接続します。
+
+Cast成功後に、`Hunter`変数から`StartChasingPlayer`を呼び出します。
+
+```text
+AlertCollision
+On Component Begin Overlap
+    ↓
+Cast To BP_ThirdPersonCharacter
+Object: Other Actor
+    ↓
+Hunter
+StartChasingPlayer
+```
+
+</Action>
+
+<Action title="警戒エリアを一度だけ作動させる">
+
+`StartChasingPlayer`を呼び出した後に、`AlertCollision`へ`Set Collision Enabled`を実行します。
+
+`New Type`を`No Collision`に設定します。
+
+```text
+StartChasingPlayer
+    ↓
+Set Collision Enabled
+Target: AlertCollision
+New Type: No Collision
+```
+
+これにより、プレイヤーの追跡開始を1回だけ実行します。
+
+</Action>
+
+<Verify title="巡回から追跡へ変わる順番を確認する">
+
+Playして、次の順番を確認します。
+
+1. ハンターが2つの巡回地点を往復する
+2. プレイヤーが警戒エリアへ入る
+3. ハンターのライトが赤色へ変わる
+4. ハンターがプレイヤーへ向かう
+5. プレイヤーが方向を変えると、ハンターも進行方向を変える
+6. ハンターが壁や曲がり角に沿って進む
+
+</Verify>
+
+<Recovery title="警戒エリアから追跡を開始する">
+
+追跡を開始するために、次を順番に確認します。
+
+1. `BP_AlertZone`の`Hunter`へレベル上の`BP_Hunter`を割り当てる
+2. `AlertCollision`の`Generate Overlap Events`を有効にする
+3. `Other Actor`をCastの`Object`へ接続する
+4. Cast成功側から`StartChasingPlayer`を呼び出す
+5. `StartChasingPlayer`で`IsChasingPlayer`を`true`へ設定する
+6. `AI MoveTo`の`Pawn`へ`Self`を接続する
+7. `Target Actor`へ`Get Player Character`の`Return Value`を接続する
+8. CompileしてSaveする
+
+</Recovery>
+
+<Checkpoint title="理解度確認3">
+
+`AI MoveTo`の`Target Actor`には、どのノードのどの出力ピンを接続しますか。
+
+「○○の○○」の形で答えてください。
+
+<details>
+<summary>ヒント1</summary>
+
+プレイヤーキャラクターを取得するノードを使います。
+
+</details>
+
+<details>
+<summary>ヒント2</summary>
+
+ノード名は`Get Player Character`です。
+
+</details>
+
+<details>
+<summary>答え</summary>
+
+`Get Player Character`の`Return Value`
+
+</details>
+
+</Checkpoint>
+
+</Section>
+
+---
+
+<Section title="ハンターに追われるステージを作る" goal="壁、巡回地点、警戒エリアを配置し、ハンターに追われるステージを作れるようになります。">
+
+ここまでに作ったBlueprintとActorを使い、ハンターに追われる場面をレベル上へ作ります。
+
+### 演習1
+
+<Exercise>
+
+`L_NightEscape`の壁、`BP_Hunter`、`PatrolPointA`、`PatrolPointB`、`BP_AlertZone`、プレイヤー開始位置を配置し、次の流れで進むステージを作ってください。
+
+```text
+ハンターが巡回する
+    ↓
+プレイヤーが警戒エリアへ入る
+    ↓
+ハンターのライトが赤色へ変わる
+    ↓
+ハンターが壁や曲がり角を通って追いかけてくる
+```
+
+次の作業を行います。
+
+1. Cubeを配置し、入口から警備エリアへ続く通路を作る
+2. 通路に壁または曲がり角を1か所以上作る
+3. 警備エリアの奥へ`BP_Hunter`を配置する
+4. `PatrolPointA`と`PatrolPointB`を配置し、巡回経路を作る
+5. プレイヤーが通る場所へ`BP_AlertZone`を配置する
+6. `BP_AlertZone`の`Hunter`へ`BP_Hunter`を割り当てる
+7. `P`キーで、入口から巡回経路まで緑色の道がつながることを確認する
+8. Playして、狙った場所からハンターが追ってくることを確認する
+
+ステージは、次の条件をすべて満たします。
+
+- Play開始時にハンターが巡回する
+- プレイヤーが警戒エリアへ入るまで巡回が続く
+- 警戒エリアへ入るとライトが赤色へ変わる
+- ハンターがプレイヤーを追いかける
+- ハンターが壁や曲がり角に沿って移動する
+- プレイヤーが入口へ戻って逃げられる
+- ハンターの巡回場所と警戒エリアの位置が、プレイ中に分かる
+
+<Solution>
+
+掲載例では、入口から曲がり角を進んだ先に警備エリアを置き、その奥をハンターが巡回します。
+
+次の配置関係を満たすと、同じゲームの流れを作れます。
+
+```text
+巡回地点A ── ハンター ── 巡回地点B
+                 │
+              曲がり角
+                 │
+             警戒エリア
+                 │
+             プレイヤー
+```
+
+通路の形、壁の長さ、巡回地点の間隔、警戒エリアの位置は、作りたい場面に合わせて調整します。完成条件の動きが順番に発生すれば完成です。
+
+</Solution>
+
+</Exercise>
+
+### 演習-発展1
+
+<Exercise>
+
+ハンターの見え方を工夫し、警戒エリアへ入る前から緊張感が伝わる配置を作ってください。
+
+次の要素から1つ以上を取り入れます。
+
+- 壁越しに`HunterLight`の光が見える
+- 曲がり角からハンターが一瞬見える
+- 長い通路の奥をハンターが横切る
+- 巡回中のハンターがプレイヤーへ背を向ける時間を作る
+- 警戒エリアへ入った直後に、ハンターが正面を向く配置にする
+
+Playして、警戒エリアへ入る前と入った後で、ハンターの見え方と動きが変われば完成です。
+
+<Solution>
+
+ハンターのライト、壁、曲がり角、巡回地点の配置を組み合わせると、現在のBlueprint処理のまま見せ方を変えられます。
+
+警戒エリアへ入る前は巡回の様子や光が見え、入った後は赤いライトと追跡の動きが見える配置にすると、変化が伝わりやすくなります。
+
+</Solution>
+
+</Exercise>
+
+</Section>
+
+---
+
+<Section title="ページ1の完成状態を確認する" goal="巡回から追跡へ切り替わるステージの完成状態を確認できるようになります。">
+
+<Checkpoint title="完成チェック">
+
+- `L_NightEscape`を開いている
+- 使用する床がNavigation Meshの緑色の範囲に含まれている
+- `BP_Hunter`が2つの巡回地点を往復する
+- `BP_AlertZone`へ対象の`BP_Hunter`が割り当てられている
+- プレイヤーが警戒エリアへ入ると`HunterLight`が赤色へ変わる
+- `IsChasingPlayer`が`true`になり、ハンターがプレイヤーへ向かう
+- ハンターが壁や曲がり角に沿って移動する
+- ハンターに追われるステージの配置が完成している
+
+</Checkpoint>
+
+</Section>
+
+<NextSteps>
+
+次のページでは、ハンターに捕まったときの再スタート、脱出口、ゲームクリアを追加します。その後、自分で考えたテーマに合わせてステージ全体を作り替えます。
+
+</NextSteps>
