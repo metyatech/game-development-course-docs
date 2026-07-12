@@ -1,0 +1,830 @@
+---
+title: NIGHT ESCAPE 2：脱出口まで逃げ切れ！
+authoringMode: tutorial
+---
+
+前のページでは、警備中のハンターがプレイヤーを発見し、壁や曲がり角を通って追いかける動きを作りました。
+
+このページでは、ハンターに捕まったときの再スタートと、脱出口へ到達したときのゲームクリアを追加します。基本機能が完成した後は、自分で考えたテーマに合わせて、ステージ、ハンター、脱出口の見せ方を作り替えます。
+
+<Prerequisites>
+
+- [NIGHT ESCAPE 1：警備中のハンターから逃げろ！](../night-escape-1/index.mdx)を完了している
+- `L_NightEscape`でハンターが巡回する
+- プレイヤーが`BP_AlertZone`へ入るとハンターが追いかける
+- ハンターが壁や曲がり角に沿って移動する
+
+</Prerequisites>
+
+<Checkpoint title="今回の完成条件">
+
+- ハンターに捕まると`CAUGHT!`が表示され、レベルが最初から始まる
+- 脱出口へ入ると`ESCAPED!`が表示され、ゲームが停止する
+- ゲームの場所、ハンター、脱出口、雰囲気を自分で決める
+- プレイヤーが進む道を考えられる逃走ステージを作る
+- 自分で複数回プレイし、難易度や見やすさを調整する
+
+</Checkpoint>
+
+---
+
+<Section title="ハンターの捕獲範囲を作る" goal="ハンターがプレイヤーを捕まえる範囲を作れるようになります。">
+
+<Action title="Sphere Collisionを追加する">
+
+`BP_Hunter`を開き、Componentsパネルで`Sphere Collision`を追加します。
+
+名前を次のように変更します。
+
+```text
+CaptureCollision
+```
+
+</Action>
+
+<Action title="捕獲範囲の大きさを調整する">
+
+Viewportで`CaptureCollision`を選択し、Sphere Radiusを調整します。
+
+ハンターの体を包み、プレイヤーが近くまで来たときに重なる大きさへ設定します。
+
+球の中心は、ハンターの体の中央付近へ合わせます。
+
+</Action>
+
+<Action title="プレイヤーとのOverlapを受け取る">
+
+`CaptureCollision`のCollisionを次のように設定します。
+
+| 項目 | 値 |
+| --- | --- |
+| `Collision Presets` | `OverlapOnlyPawn` |
+| `Generate Overlap Events` | 有効 |
+
+この設定により、プレイヤーが捕獲範囲へ入ったときにOverlapイベントを受け取れます。
+
+</Action>
+
+<Verify title="捕獲範囲の形を確認する">
+
+BlueprintのViewportで、次を確認します。
+
+- `CaptureCollision`がハンターの体を囲んでいる
+- 球の下端が床へ大きく入り込む形になっている
+- 球の前後左右に、プレイヤーが接触できる範囲がある
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="捕まったことを表示する" goal="CaptureCollisionへ入ったプレイヤーを判定し、CAUGHT!と表示できるようになります。">
+
+<Action title="Overlapイベントを追加する">
+
+Componentsパネルで`CaptureCollision`を選択し、DetailsのEventsから`On Component Begin Overlap`を追加します。
+
+Event GraphにOverlapイベントが作成されます。
+
+</Action>
+
+<Action title="プレイヤーを判定する">
+
+`Cast To BP_ThirdPersonCharacter`を追加します。
+
+`On Component Begin Overlap`の`Other Actor`を、Castの`Object`へ接続します。
+
+```text
+CaptureCollision
+On Component Begin Overlap
+    ↓
+Cast To BP_ThirdPersonCharacter
+Object: Other Actor
+```
+
+このCastにより、捕獲範囲へ入ったActorがプレイヤーキャラクターであることを確認します。
+
+</Action>
+
+<Action title="捕獲範囲を閉じる">
+
+Cast成功側から、`CaptureCollision`の`Set Collision Enabled`を実行します。
+
+`New Type`を`No Collision`に設定します。
+
+```text
+Cast成功
+    ↓
+Set Collision Enabled
+Target: CaptureCollision
+New Type: No Collision
+```
+
+捕まった後の処理を1回だけ実行するため、捕獲範囲を閉じます。
+
+</Action>
+
+<Action title="CAUGHT!と表示する">
+
+`Print String`を追加し、`In String`へ次を入力します。
+
+```text
+CAUGHT!
+```
+
+`Duration`を`0.5`に設定します。
+
+```text
+Set Collision Enabled
+    ↓
+Print String
+In String: CAUGHT!
+Duration: 0.5
+```
+
+</Action>
+
+<Verify title="捕獲メッセージを確認する">
+
+CompileしてPlayします。
+
+警戒エリアへ入り、ハンターへ近づきます。
+
+画面に`CAUGHT!`と表示されれば成功です。
+
+</Verify>
+
+<Recovery title="CAUGHT!を表示する">
+
+表示までの流れを作るために、次を順番に確認します。
+
+1. `CaptureCollision`の`Generate Overlap Events`を有効にする
+2. `Other Actor`をCastの`Object`へ接続する
+3. Cast成功側へ`Set Collision Enabled`を接続する
+4. `Set Collision Enabled`の後へ`Print String`を接続する
+5. `CaptureCollision`をプレイヤーが触れられる大きさにする
+6. CompileしてSaveする
+
+</Recovery>
+
+<Checkpoint title="理解度確認1">
+
+`On Component Begin Overlap`で、範囲へ入ったActorを受け取る出力ピン名を答えてください。
+
+<details>
+<summary>ヒント</summary>
+
+`Cast To BP_ThirdPersonCharacter`の`Object`へ接続したピンです。
+
+</details>
+
+<details>
+<summary>答え</summary>
+
+`Other Actor`
+
+</details>
+
+</Checkpoint>
+
+</Section>
+
+---
+
+<Section title="捕まったら最初から始める" goal="捕獲メッセージの後にL_NightEscapeを再読み込みできるようになります。">
+
+<Action title="メッセージを見せる時間を作る">
+
+`Print String`の後に`Delay`を追加します。
+
+`Duration`を`0.5`に設定します。
+
+```text
+Print String
+    ↓
+Delay
+Duration: 0.5
+```
+
+この`Delay`は、レベルを再読み込みする前に`CAUGHT!`を0.5秒間表示するために使います。
+
+</Action>
+
+<Action title="L_NightEscapeを開く">
+
+`Open Level (by Object Reference)`を追加します。
+
+`Level`へ`L_NightEscape`を指定します。
+
+```text
+Delay
+    ↓
+Open Level (by Object Reference)
+Level: L_NightEscape
+```
+
+レベルが読み込まれると、プレイヤー、ハンター、巡回、警戒エリアが開始時の状態へ戻ります。
+
+</Action>
+
+<Verify title="再スタートの流れを確認する">
+
+Playして、次の順番を確認します。
+
+1. プレイヤーが警戒エリアへ入る
+2. ハンターがプレイヤーを追いかける
+3. ハンターへ触れる
+4. `CAUGHT!`が表示される
+5. `L_NightEscape`が読み込まれる
+6. プレイヤーとハンターが開始位置へ戻る
+7. ハンターが巡回を始める
+
+</Verify>
+
+<Recovery title="L_NightEscapeを再読み込みする">
+
+再スタートを実行するために、次を順番に確認します。
+
+1. `Print String`の後へ`Delay`を接続する
+2. `Delay`の後へ`Open Level (by Object Reference)`を接続する
+3. `Level`へ`L_NightEscape`を指定する
+4. `L_NightEscape`をSaveする
+5. CompileしてPlayする
+
+</Recovery>
+
+<Checkpoint title="理解度確認2">
+
+捕まった後に`Delay`を入れる目的を答えてください。
+
+<details>
+<summary>ヒント1</summary>
+
+`Delay`の前で`CAUGHT!`を表示しています。
+
+</details>
+
+<details>
+<summary>ヒント2</summary>
+
+レベルを開くと、画面とActorが開始時の状態へ変わります。
+
+</details>
+
+<details>
+<summary>答え</summary>
+
+レベルを再読み込みする前に、`CAUGHT!`を0.5秒間表示するためです。
+
+</details>
+
+</Checkpoint>
+
+</Section>
+
+---
+
+<Section title="脱出口のBlueprintを作る" goal="プレイヤーが入るとゲームクリアになる脱出口を作れるようになります。">
+
+<Action title="Actor Blueprintを作る">
+
+`Content/NightEscape/Blueprints`で、`Actor`を親にしたBlueprintを作ります。
+
+名前を次のようにします。
+
+```text
+BP_EscapeGate
+```
+
+</Action>
+
+<Action title="脱出口の形を作る">
+
+`BP_EscapeGate`へ次のコンポーネントを追加します。
+
+- `Cube`
+- `Box Collision`
+- `Point Light`
+
+名前を次のように変更します。
+
+| コンポーネント | 名前 |
+| --- | --- |
+| `Cube` | `GateMesh` |
+| `Box Collision` | `EscapeCollision` |
+| `Point Light` | `EscapeLight` |
+
+`GateMesh`を縦長に調整し、入口や転送装置のように見える形を作ります。
+
+`EscapeCollision`を、プレイヤーが通る範囲へ広げます。
+
+`EscapeLight`を、脱出口の位置が分かる色と明るさへ設定します。
+
+</Action>
+
+<Action title="脱出口のCollisionを設定する">
+
+`EscapeCollision`を次のように設定します。
+
+| 項目 | 値 |
+| --- | --- |
+| `Collision Presets` | `OverlapOnlyPawn` |
+| `Generate Overlap Events` | 有効 |
+
+</Action>
+
+<Action title="脱出口をレベルへ配置する">
+
+`BP_EscapeGate`をレベルへ配置します。
+
+プレイヤーの開始位置から通路を進んだ先へ置きます。ハンターの巡回場所や警戒エリアから距離を取り、逃げる時間を作ります。
+
+</Action>
+
+<Verify title="脱出口の見た目を確認する">
+
+Playして、次を確認します。
+
+- 脱出口の形が見える
+- `EscapeLight`で脱出口の位置が分かる
+- プレイヤーが脱出口の中へ入れる
+- ハンターのライトと脱出口のライトを見分けられる
+
+</Verify>
+
+</Section>
+
+---
+
+<Section title="脱出口へ入ったらゲームを止める" goal="プレイヤーが脱出口へ入ったときにESCAPED!を表示し、ゲームを停止できるようになります。">
+
+<Action title="脱出口のOverlapイベントを追加する">
+
+`BP_EscapeGate`を開き、`EscapeCollision`の`On Component Begin Overlap`を追加します。
+
+`Cast To BP_ThirdPersonCharacter`を追加し、`Other Actor`を`Object`へ接続します。
+
+```text
+EscapeCollision
+On Component Begin Overlap
+    ↓
+Cast To BP_ThirdPersonCharacter
+Object: Other Actor
+```
+
+</Action>
+
+<Action title="脱出口を一度だけ作動させる">
+
+Cast成功側から、`EscapeCollision`の`Set Collision Enabled`を実行します。
+
+`New Type`を`No Collision`に設定します。
+
+</Action>
+
+<Action title="ESCAPED!と表示する">
+
+`Print String`を追加します。
+
+| 項目 | 値 |
+| --- | --- |
+| `In String` | `ESCAPED!` |
+| `Duration` | `10` |
+
+</Action>
+
+<Action title="ゲームを停止する">
+
+`Set Game Paused`を追加し、`Paused`を有効にします。
+
+次の順番で接続します。
+
+```text
+Cast成功
+    ↓
+Set Collision Enabled
+    ↓
+Print String
+In String: ESCAPED!
+    ↓
+Set Game Paused
+Paused: true
+```
+
+</Action>
+
+<Verify title="ゲームクリアを確認する">
+
+Playして、ハンターから逃げながら脱出口へ入ります。
+
+次の状態になれば成功です。
+
+- `ESCAPED!`が表示される
+- プレイヤーの動きが停止する
+- ハンターの動きが停止する
+- エディタのStopボタンでPlayを終了できる
+
+</Verify>
+
+<Checkpoint title="理解度確認3">
+
+脱出口へ入ったプレイヤーを判定するために、`Other Actor`を接続するCastの名前を答えてください。
+
+<details>
+<summary>ヒント</summary>
+
+プレイヤーに使っているBlueprint名が含まれています。
+
+</details>
+
+<details>
+<summary>答え</summary>
+
+`Cast To BP_ThirdPersonCharacter`
+
+</details>
+
+</Checkpoint>
+
+</Section>
+
+---
+
+<Section title="基本の脱出ゲームを確認する" goal="巡回、追跡、捕獲、脱出が1つのゲームとしてつながっていることを確認できるようになります。">
+
+<Recovery title="ゲーム全体を順番に確認する">
+
+各Blueprintを次の順番で確認します。
+
+1. `BP_Hunter`：巡回と`StartChasingPlayer`
+2. `BP_AlertZone`：`Hunter`の割り当てとOverlap
+3. `CaptureCollision`：捕獲とレベル再読み込み
+4. `BP_EscapeGate`：脱出口とゲーム停止
+5. `L_NightEscape`：Navigation MeshとActorの配置
+
+1つ確認するたびにPlayし、動きがつながることを確認します。
+
+</Recovery>
+
+<Checkpoint title="基本機能の完成チェック">
+
+次の順番をPlayで確認します。
+
+1. ハンターが2つの地点を巡回する
+2. プレイヤーが警戒エリアへ入る
+3. ハンターのライトが赤色へ変わる
+4. ハンターがプレイヤーを追いかける
+5. ハンターに捕まると`CAUGHT!`が表示される
+6. `L_NightEscape`が開始時の状態へ戻る
+7. 脱出口へ入ると`ESCAPED!`が表示される
+8. ゲームが停止する
+
+</Checkpoint>
+
+</Section>
+
+---
+
+<Section title="ゲームのテーマを考える" goal="場所、ハンター、脱出口、雰囲気を決め、自分のゲームのテーマを作れるようになります。">
+
+同じ巡回と追跡の仕組みでも、場所、ハンター、光、壁の配置を変えると、別のゲームとして見せられます。
+
+例えば、次のようなテーマが考えられます。
+
+- 閉鎖された研究施設から、実験体を避けて脱出する
+- 夜の迷路で、正体不明の怪物から逃げる
+- 廃倉庫で、警備ロボットに追われながら出口を探す
+- 洞窟で、奥から現れた生物から逃げる
+- 古い城で、鎧や幽霊から逃げる
+- 宇宙基地で、故障した作業ロボットから逃げる
+- 学校やゲームセンターなど、身近な場所を舞台にする
+- 光と色を中心にした抽象的な空間を作る
+
+これらは、考え始めるための例です。例をもとに変えたり、複数の例を組み合わせたり、自分で別のテーマを作ったりできます。
+
+### 演習1
+
+<Exercise>
+
+自分の`NIGHT ESCAPE`について、次の4項目を決めてください。
+
+```text
+ゲームの場所：
+ハンター：
+脱出口：
+目指す雰囲気：
+```
+
+次の条件を満たすテーマを作ります。
+
+- 標準アセット、Cube、ライトを中心に表現できる
+- 巡回するハンターと脱出口がテーマの中で自然な役割を持つ
+- 授業時間内にステージへ反映できる
+- 場所、ハンター、脱出口、雰囲気の組み合わせにまとまりがある
+
+<Solution>
+
+次はテーマの一例です。
+
+```text
+ゲームの場所：停電した宇宙基地
+ハンター：故障して赤い警告灯を点灯する警備ロボット
+脱出口：青く光る緊急転送ゲート
+目指す雰囲気：暗い通路で光を頼りに逃げる
+```
+
+4項目の組み合わせからゲームの場面を想像でき、今回のBlueprintと標準アセットで表現できれば完成です。
+
+</Solution>
+
+</Exercise>
+
+</Section>
+
+---
+
+<Section title="自分の逃走ステージを作る" goal="テーマに合わせて、進む道を考えられる逃走ステージを作れるようになります。">
+
+ステージでは、プレイヤーが「どちらへ進むか」「どこでハンターを避けるか」を考えられる場所を作ります。
+
+構造を考えるときは、次の例を出発点にできます。
+
+### 近道と遠回り
+
+```text
+スタート
+   │
+   ├── 短くて危険な道 ──┐
+   │                    ├── 脱出口
+   └── 長くて安全な道 ──┘
+```
+
+### 広い空間と細い通路
+
+```text
+スタート
+   │
+細い通路
+   │
+広い空間
+ ├─┼─┤
+複数の進行方向
+   │
+脱出口
+```
+
+### 大きな障害物の周囲を回る
+
+中央に大きな壁や障害物を置き、プレイヤーとハンターがその周囲を回れる形を作ります。
+
+### 演習2
+
+<Exercise>
+
+決めたテーマに合わせて、`L_NightEscape`の壁、床、ライト、各Actorの配置を作り替えてください。
+
+次の作業を行います。
+
+1. プレイヤーの開始位置を決める
+2. ハンターの巡回場所を決める
+3. `PatrolPointA`と`PatrolPointB`を配置する
+4. 追跡が始まる場所へ`BP_AlertZone`を配置する
+5. スタートから脱出口までの道を作る
+6. 進む方向を考える場所を1か所以上作る
+7. 壁や障害物を使い、ハンターを避ける場所を作る
+8. `BP_EscapeGate`をテーマに合う形と色へ調整する
+9. `HunterLight`をハンターの役割に合う色へ調整する
+10. `P`キーで、ハンターが使う経路を確認する
+
+次の条件をすべて満たします。
+
+- プレイヤーがスタートから脱出口へ到達できる
+- ハンターが巡回地点を往復できる
+- 警戒エリアへ入るとハンターがプレイヤーへ到達できる
+- 進む方向を考える場所が1か所以上ある
+- 壁や障害物を使ってハンターとの距離を変えられる
+- ハンターに捕まる場合がある
+- 脱出口へ到達できる場合がある
+- テーマに合わせた見た目の変更が1か所以上ある
+
+<Solution>
+
+完成するステージの形には複数の答えがあります。
+
+次の配置関係を満たすと、基本のゲーム進行を作れます。
+
+```text
+プレイヤー開始位置
+        │
+    警戒エリア
+        │
+  分かれ道または障害物
+    ├────────┐
+ハンター巡回場所    遠回り
+    └────────┤
+             脱出口
+```
+
+Playして、巡回、発見、追跡、捕獲、脱出が順番につながり、テーマが見た目から伝われば完成です。
+
+</Solution>
+
+</Exercise>
+
+</Section>
+
+---
+
+<Section title="自分でプレイして調整する" goal="複数の進み方を試し、難易度と見やすさを調整できるようになります。">
+
+ゲームは、配置した直後の状態から、実際のプレイを通して調整します。
+
+### 演習3
+
+<Exercise>
+
+自分のステージを3回以上プレイし、結果に合わせて1項目以上を調整してください。
+
+#### 1回目：脱出口へ向かう
+
+脱出口まで進み、次を確認します。
+
+- 脱出口の場所が分かる
+- スタートから脱出口へ到達できる
+- ハンターが巡回から追跡へ変わる
+- クリアまでの時間がゲームの規模に合っている
+
+#### 2回目：別の道を使う
+
+分かれ道、広い空間、障害物の周囲など、1回目と異なる進み方を試します。
+
+- 別の進み方が成立する
+- 道ごとに危険度や距離の違いがある
+- 行き止まりから入口側へ戻れる
+- ハンターが経路に沿って追ってくる
+
+#### 3回目：ハンターへ近づく
+
+ハンターとの距離が縮まる進み方を試します。
+
+- `CaptureCollision`が自然な距離で作動する
+- `CAUGHT!`が表示される
+- レベルが開始時の状態へ戻る
+- 再スタート後も巡回と警戒エリアが作動する
+
+プレイ結果に合わせて、次の中から1項目以上を変更します。
+
+- ハンターの`Max Walk Speed`
+- `CaptureCollision`の大きさ
+- ハンターの開始位置
+- プレイヤーの開始位置
+- `PatrolPointA`と`PatrolPointB`の位置
+- `BP_AlertZone`の位置
+- 脱出口の位置
+- 通路の幅
+- 壁や障害物の位置
+- `HunterLight`と`EscapeLight`の色や明るさ
+
+変更後にもう一度Playし、変更した場所の効果を確認します。
+
+<Solution>
+
+調整には、作りたい難易度に合う複数の答えがあります。
+
+例えば、ハンターが早い段階で近づく場合は、巡回場所と入口の距離を広げたり、通路を広げたりできます。ハンターとの距離が開き続ける場合は、`Max Walk Speed`や警戒エリアの位置を調整できます。
+
+変更した項目によって、プレイ中の動きや見え方が意図した方向へ変われば完成です。
+
+</Solution>
+
+</Exercise>
+
+</Section>
+
+---
+
+<Section title="既習機能でゲームを広げる" goal="前期に作った機能を選び、テーマに合うアレンジを追加できるようになります。">
+
+基本のゲームが完成した後は、前期に作った機能を組み合わせられます。
+
+### 演習-発展1
+
+<Exercise>
+
+前期に作った機能から、ゲームのテーマに合うものを1つ選び、`NIGHT ESCAPE`へ追加してください。
+
+例：
+
+- 動く床を逃走経路に置く
+- スイッチで新しい道を開く
+- 物理オブジェクトを障害物にする
+- Niagaraで脱出口を目立たせる
+- 効果音で警戒や脱出を表現する
+- UIで操作方法を表示する
+- チェックポイントを追加する
+- シーケンサーでゲーム開始時の演出を作る
+
+追加する機能は、次の条件を満たします。
+
+- テーマとゲーム進行に合っている
+- 巡回、追跡、捕獲、脱出の基本機能が動く
+- Playして追加した機能の効果を確認できる
+- 授業時間内に完成できる規模へまとめている
+
+<Solution>
+
+追加する機能には複数の答えがあります。
+
+例えば、宇宙基地をテーマにした場合は、Niagaraで転送ゲートを表現したり、スイッチで隔壁を開いたりできます。
+
+基本のゲーム進行と追加機能が一緒に動き、テーマや遊び方がより伝わる状態になれば完成です。
+
+</Solution>
+
+</Exercise>
+
+### 演習-発展2
+
+<Exercise>
+
+`BP_Hunter`をもう1体配置し、2体のハンターに異なる役割を持たせてください。
+
+例：
+
+- 入口近くを巡回するハンターと、脱出口近くを巡回するハンター
+- 近くにいる遅いハンターと、遠くにいる速いハンター
+- 左側の道を守るハンターと、右側の道を守るハンター
+
+ハンターごとに次を用意します。
+
+- 2つの巡回地点
+- 追跡開始に使う`BP_AlertZone`
+- `BP_AlertZone`の`Hunter`へ対応する`BP_Hunter`の割り当て
+- Navigation Mesh上の移動経路
+
+Playして、各警戒エリアが対応するハンターを動かし、2体の役割の違いがプレイから分かれば完成です。
+
+<Solution>
+
+`BP_AlertZone`の`Hunter`変数へ対象のハンターを直接割り当てているため、警戒エリアごとに動かすハンターを選べます。
+
+2体の開始位置、巡回経路、速度、警戒エリアを変えると、それぞれに異なる役割を持たせられます。
+
+</Solution>
+
+</Exercise>
+
+</Section>
+
+---
+
+<Section title="NIGHT ESCAPEを完成させる" goal="技術面とゲーム面の完成条件を確認し、作品を保存できるようになります。">
+
+<Reference title="技術面の完成チェック">
+
+- `BP_Hunter`が2地点を巡回する
+- `BP_AlertZone`へ入ると`HunterLight`が赤色へ変わる
+- `IsChasingPlayer`が`true`になり、ハンターがプレイヤーを追う
+- ハンターがNavigation Meshに沿って壁や障害物を回り込む
+- `CaptureCollision`へ入ると`CAUGHT!`が表示される
+- 捕まった後に`L_NightEscape`が開始時の状態へ戻る
+- `BP_EscapeGate`へ入ると`ESCAPED!`が表示される
+- 脱出後にゲームが停止する
+
+</Reference>
+
+<Reference title="ゲーム面の完成チェック">
+
+- ゲームの場所、ハンター、脱出口、雰囲気が決まっている
+- ハンターと脱出口を光や形で見分けられる
+- 進む方向を考える場所が1か所以上ある
+- 壁や障害物を使ってハンターを避けられる
+- ハンターに捕まる場合と脱出できる場合がある
+- 自分で3回以上プレイしている
+- プレイ結果をもとに1項目以上を調整している
+- ゲームを最初からクリアまで通して実行できる
+
+</Reference>
+
+<Action title="レベルとBlueprintを保存する">
+
+`BP_Hunter`、`BP_AlertZone`、`BP_EscapeGate`をCompileしてSaveします。
+
+`L_NightEscape`をSaveします。
+
+最後にPlayし、巡回、発見、追跡、捕獲、再スタート、脱出を順番に確認します。
+
+</Action>
+
+<Checkpoint title="今回のまとめ">
+
+今回は、Navigation Meshと`AI MoveTo`を使い、巡回中のハンターがプレイヤーを発見して追いかけるゲームを作りました。
+
+同じBlueprintを使っていても、通路の形、巡回場所、警戒エリア、ハンターの速さ、ライトの色を変えると、遊んだときの印象が変わります。
+
+ゲーム制作では、機能を動かすことに加えて、その機能をどこへ置き、プレイヤーにどの道を選ばせるかを考えることも大切です。
+
+</Checkpoint>
+
+</Section>
