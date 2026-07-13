@@ -576,27 +576,34 @@ Playして確認します。
 
 ---
 
-<Section title="動きを確認して調整する" goal="設定や配置を1か所変え、追われ方の変化を確かめます。">
+<Section title="警戒開始の演出を追加する" goal="プレイヤーが見つかると入口が閉じる演出を追加します。">
 
 ### 演習1
 
 <Exercise>
 
-左右の通路、中央の通路、巡回地点、警戒エリア、ハンターの速さから1つを選び、設定や配置を変更してください。
+プレイヤーが警戒エリアに入ると、通ってきた入口のシャッターが閉じるようにしてください。
 
-変更後も巡回と追跡が動き、変更前と比べてハンターの動きや追われ方が変われば完成です。
+`BP_AlarmShutter`を作り、Timelineでシャッターを下へ動かします。`CloseShutter`というCustom EventからTimelineを再生できるようにします。
+
+`BP_AlertZone`から`CloseShutter`を呼び出し、次の状態になれば完成です。
+
+- Play開始時はシャッターが開いている
+- 警戒エリアに入ると、ハンターが赤くなって追跡を始める
+- プレイヤーの後ろでシャッターが閉じる
+- 閉じるシャッターがプレイヤーに重ならない
 
 <Hint>
 
-ハンターが止まった場合は、`P`キーでNavigation Meshを表示し、移動する道が途切れていないか確認します。
+`BP_AlertZone`に`BP_AlarmShutter Object Reference`型の変数を作り、レベルに配置したシャッターを割り当てます。
 
 </Hint>
 
 <Answer>
 
-例えば、中央の通路を上側へ移すと、左右を切り替えられる場所がハンターの巡回場所へ近づきます。
+`BP_AlarmShutter`にCubeを追加し、入口をふさぐ大きさにします。Timelineの更新中にCubeの位置を上から下へ動かし、`CloseShutter`からTimelineを再生します。
 
-巡回と追跡が動いたまま、変更前との違いをPlayで確認できれば完成です。
+`BP_AlertZone`では、プレイヤーのCast成功側から`StartChasingPlayer`を呼び出したあと、割り当てたシャッターの`CloseShutter`を呼び出します。シャッターを警戒エリアの入口より少し手前へ置くと、プレイヤーが通過したあとに閉じられます。
 
 </Answer>
 
@@ -604,13 +611,12 @@ Playして確認します。
 
 <Checkpoint title="完成チェック">
 
-- 左右の通路と中央の通路がつながっている
-- Navigation Meshがプレイヤーの開始位置から巡回地点までつながっている
-- ハンターが2つの地点を往復する
-- 警戒エリアに入るとライトが赤くなる
-- ハンターがプレイヤーを追いかける
+- 床がすべてNavigation Meshの緑色で表示されている
+- Play開始時に、通常色のハンターが2つの地点を往復する
+- 警戒エリアに入ると、ハンターのライトが赤くなる
+- ハンターが巡回をやめ、プレイヤーを追いかける
 - ハンターが壁を回り込んで移動する
-- 配置または速度を1か所調整した
+- 警戒エリアに入ると、入口のシャッターが閉じる
 
 </Checkpoint>
 
@@ -620,23 +626,55 @@ Playして確認します。
 
 <Exercise>
 
-巡回中のハンターが、警戒エリアへ入る前から印象に残るように、壁、巡回地点、`HunterLight`の配置を調整してください。
+`PatrolPointC`を追加し、ハンターが3つの地点を順番に巡回するようにしてください。
 
-例えば、巡回するハンターが中央の通路を横切って見えるようにします。
+```text
+PatrolPointA
+    ↓
+PatrolPointB
+    ↓
+PatrolPointC
+    ↓
+PatrolPointA
+```
 
-通常色で巡回する姿と、警戒エリアへ入ったあとの赤いライトの違いが分かれば完成です。
+`PatrolPointC`は、AとBを往復するだけでは通らない場所へ配置します。警戒エリアに入ると3地点の巡回をやめ、プレイヤーを追いかければ完成です。
 
 <Hint>
 
-`PlayerStart`から見たとき、ハンターの巡回ルートが壁で隠れすぎていないか確認します。
+`PatrolPointC`変数と`MoveToPatrolPointC`を追加し、3つの`AI MoveTo`の`On Success`を順番につなぎます。
 
 </Hint>
 
 <Answer>
 
-巡回地点を左右に離し、ハンターが中央の通路の奥を横切るようにすると、Play直後から動きを確認できます。
+`BP_Hunter`に`PatrolPointC`を追加し、レベル上の3つ目のTarget Pointを割り当てます。
 
-そのあと警戒エリアへ入ってライトが赤くなれば、巡回から追跡への変化も分かりやすくなります。
+`MoveToPatrolPointB`の成功後に`MoveToPatrolPointC`、`MoveToPatrolPointC`の成功後に`MoveToPatrolPointA`を呼び出すと、A→B→C→Aの順に巡回します。各イベントの`Branch`は残し、追跡中は巡回用の`AI MoveTo`を実行しないようにします。
+
+</Answer>
+
+</Exercise>
+
+### 演習-発展2
+
+<Exercise>
+
+プレイヤーを追跡している間だけ、ハンターが巡回中より速く走るようにしてください。
+
+警戒エリアに入る前後で速さの違いが分かり、速くなったあとも壁を回り込んで追跡できれば完成です。
+
+<Hint>
+
+`StartChasingPlayer`の中で、`Character Movement`の`Set Max Walk Speed`を実行します。
+
+</Hint>
+
+<Answer>
+
+`StartChasingPlayer`でライトを赤くしたあとに`Set Max Walk Speed`を追加し、巡回中より速い値を設定します。そのあとに追跡用の`AI MoveTo`を実行します。
+
+Playして、警戒エリアへ入る前は巡回時の速さ、入ったあとは追跡用の速さになることを確認します。
 
 </Answer>
 
