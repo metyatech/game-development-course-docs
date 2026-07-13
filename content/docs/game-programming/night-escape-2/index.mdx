@@ -44,7 +44,7 @@ title: NIGHT ESCAPE 2：脱出口まで逃げ切れ！
 
 Componentsパネルで`CaptureCollision`を選び、DetailsのEventsから`On Component Begin Overlap`を追加します。
 
-`Cast To BP_ThirdPersonCharacter`を追加し、`Other Actor`をCastの`Object`に接続します。
+`Other Actor`ピンからドラッグし、`Cast To BP_ThirdPersonCharacter`を追加します。
 
 ```text
 CaptureCollision
@@ -266,7 +266,7 @@ Playして確認します。
 
 `BP_EscapeGate`を開き、`EscapeCollision`の`On Component Begin Overlap`を追加します。
 
-`Cast To BP_ThirdPersonCharacter`を追加し、`Other Actor`をCastの`Object`に接続します。
+`Other Actor`ピンからドラッグし、`Cast To BP_ThirdPersonCharacter`を追加します。
 
 ```text
 EscapeCollision
