@@ -11,6 +11,7 @@
       .wall-label { font: 700 24px 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif; fill: #ffffff; }
       .point { fill: #ffffff; stroke: #111827; stroke-width: 3; }
       .point-text { font: 700 22px 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif; fill: #111827; }
+      .hunter-text { font: 700 22px Arial, sans-serif; fill: #ffffff; }
     </style>
   </defs>
 
@@ -40,9 +41,9 @@
   <circle cx="480" cy="660" r="16" fill="#2563eb"/>
   <text class="label" x="530" y="668">PlayerStart</text>
 
-  <circle cx="785" cy="115" r="16" fill="#ef4444"/>
-  <text class="label" x="815" y="123">H</text>
-  <text class="small" x="770" y="150">ハンター</text>
+  <circle cx="785" cy="115" r="18" fill="#ef4444"/>
+  <text class="hunter-text" x="777" y="123">H</text>
+  <text class="small" x="750" y="150">ハンター</text>
 
   <circle class="point" cx="735" cy="110" r="16"/>
   <text class="point-text" x="727" y="118">A</text>
