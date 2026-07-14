@@ -346,11 +346,31 @@ Overlapイベントが続けて発生した場合を考えます。
 
 <Section title="起動装置で脱出口を開く" goal="起動装置を作動させると、脱出口が使えるようにします。">
 
-<Action title="開始時は脱出できないようにする">
+<Action title="ゲーム開始時のイベントを用意する">
 
-`EscapeCollision`の`Collision Enabled`を`No Collision`にします。
+`BP_EscapeGate`のEvent Graphに`Event BeginPlay`を追加します。すでにある場合は、そのまま使います。
 
 </Action>
+
+<Action title="開始時は脱出判定を無効にする">
+
+Componentsパネルの`EscapeCollision`をEvent Graphへドラッグし、`Set Collision Enabled`を追加します。
+
+`Event BeginPlay`から接続し、`New Type`を`No Collision`にします。
+
+</Action>
+
+完成した接続は次のようになります。
+
+```text
+Event BeginPlay
+    ↓
+Set Collision Enabled
+Target: EscapeCollision
+New Type: No Collision
+```
+
+`Collision Presets`は`OverlapOnlyPawn`のまま使います。ゲーム開始時だけ判定を無効にし、起動装置が作動したら再び有効にします。
 
 <Action title="起動前のライトへ変える">
 
@@ -367,6 +387,8 @@ Overlapイベントが続けて発生した場合を考えます。
 <Action title="脱出判定を有効にする">
 
 `ActivateEscapeGate`から`EscapeCollision`の`Set Collision Enabled`を実行し、`New Type`を`Query Only`にします。
+
+これにより、ゲーム開始時に無効にした`EscapeCollision`が再び反応するようになります。
 
 </Action>
 
@@ -537,6 +559,15 @@ ActivateEscapeGate
 - 起動後に脱出口へ入るとゲームクリアになる
 
 </Verify>
+
+<Recovery title="開始直後から脱出口を使えてしまうとき">
+
+- `Event BeginPlay`から`Set Collision Enabled`が実行されているか確認する
+- `Set Collision Enabled`の`Target`が`EscapeCollision`になっているか確認する
+- `New Type`が`No Collision`になっているか確認する
+- `BP_EscapeGate`をCompileしてSaveする
+
+</Recovery>
 
 <Recovery title="起動装置へ入っても脱出口が開かないとき">
 
