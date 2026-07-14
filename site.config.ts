@@ -6,4 +6,5 @@ export const siteConfig = {
     docsRepositoryBase:
         'https://github.com/metyatech/game-development-course-docs/tree/master',
     description: 'ゲームプログラミング・ゲーム開発の教材',
+    faviconHref: '/img/favicon.svg',
 } as const;
