@@ -768,4 +768,62 @@ Playして、警戒エリアに入る前は2体が別の場所を巡回し、そ
 
 </Exercise>
 
+### 演習-発展4
+
+<Exercise>
+
+捕まったときと脱出したときの`Print String`を、ゲームの結果がはっきり伝わる演出へ置き換えてください。
+
+UI、アニメーション、音、カメラ、Niagaraなど、これまでに学んだ機能を使えます。少なくとも捕獲と脱出で違う演出になり、結果を見分けられれば完成です。
+
+<Hint>
+
+まず、捕獲用と脱出用のどちらか一方だけを作ります。以前作ったWidgetを参考に、画面中央へ大きな文字を表示し、`Create Widget`と`Add to Viewport`で表示できるか確認してください。
+
+</Hint>
+
+<Hint>
+
+捕獲処理では、Widgetを表示したあとに既存の`Delay`と`Open Level`へつなぎます。脱出処理では、Widgetを表示したあとに`Set Game Paused`へつなぎます。演出が動くことを確認してから、対応する`Print String`を削除してください。
+
+</Hint>
+
+<Answer>
+
+一例として、捕獲用の`WBP_Caught`と脱出用の`WBP_Escaped`を作ります。どちらも画面中央に大きな文字を置き、捕獲は赤色、脱出は緑または水色にします。背景を半透明にしたり、Widget Animationで文字を拡大・フェードインさせたりすると、結果がさらに分かりやすくなります。
+
+捕獲処理では、`Print String`の代わりに`Create Widget`で`WBP_Caught`を作り、`Add to Viewport`へ接続します。そのあとに、既存の`Delay`と`Open Level (by Object Reference)`を接続します。
+
+```text
+捕獲判定を無効にする
+    ↓
+Create Widget: WBP_Caught
+    ↓
+Add to Viewport
+    ↓
+Delay: 2.0
+    ↓
+Open Level: L_NightEscape
+```
+
+脱出処理では、`Print String`の代わりに`WBP_Escaped`を表示し、そのあとに`Set Game Paused`を実行します。
+
+```text
+脱出判定を無効にする
+    ↓
+Create Widget: WBP_Escaped
+    ↓
+Add to Viewport
+    ↓
+Set Game Paused
+```
+
+必要に応じて、Widgetを表示する前に捕獲音や脱出音を再生します。捕獲では画面を赤く点滅させ、脱出ではNiagaraや明るい効果音を使うなど、結果に合う演出にしてください。
+
+Playして、捕まったときに捕獲用の演出が表示されたあと再スタートすること、脱出口へ入ったときに脱出用の演出が表示されてゲームが停止することを確認します。両方の結果を一目で見分けられ、元のゲーム進行が壊れていなければ完成です。
+
+</Answer>
+
+</Exercise>
+
 </Section>
