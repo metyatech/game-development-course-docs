@@ -658,27 +658,61 @@ Playして、1つ目を作動させても脱出口がオレンジ色のままで
 
 <Exercise>
 
-捕まったときと脱出したときの`Print String`を、ゲームの結果がはっきり伝わる演出へ置き換えてください。
+動作確認のために`Print String`で表示している、次の3つをゲームに合う演出へ置き換えてください。
 
-UI、アニメーション、音、カメラ、Niagaraなど、これまでに学んだ機能を使えます。少なくとも捕獲と脱出で違う演出になり、結果を見分けられれば完成です。
+- 捕まったときの`CAUGHT!`
+- 脱出口が開いたときの`EXIT OPEN!`
+- 脱出したときの`ESCAPED!`
+
+UI、音、Widget Animation、Niagaraなど、これまでに学んだ機能を使えます。
+
+次の状態になれば完成です。
+
+- 3つすべての`Print String`が演出へ置き換わっている
+- 捕獲、脱出口の起動、脱出を見分けられる
+- 捕獲演出のあとにレベルが再スタートする
+- 脱出口の起動演出は一定時間後に消え、そのままゲームを続けられる
+- 脱出演出のあとにゲームが停止する
 
 <Hint>
 
-まず、捕獲用と脱出用のどちらか一方だけを作ります。以前作ったWidgetを参考に、画面中央へ大きな文字を表示し、`Create Widget`と`Add to Viewport`で表示できるか確認してください。
+まず、`Print String`がある3か所を確認します。
+
+- `BP_Hunter`の捕獲処理
+- `BP_EscapeGate`の`ActivateEscapeGate`
+- `BP_EscapeGate`の脱出処理
+
+一度にすべて変更せず、最初に1か所だけWidgetや音へ置き換えて、元のゲーム進行が動くか確認してください。
 
 </Hint>
 
 <Hint>
 
-捕獲処理では、Widgetを表示したあとに既存の`Delay`と`Open Level`へつなぎます。脱出処理では、Widgetを表示したあとに`Set Game Paused`へつなぎます。演出が動くことを確認してから、対応する`Print String`を削除してください。
+Widgetを使う場合は、`Create Widget`の`Return Value`を`Add to Viewport`へ接続します。
+
+- 捕獲：演出のあとに既存の`Delay`と`Open Level`へ進む
+- 脱出口の起動：演出を表示し、`Delay`のあとに`Remove from Parent`で消す
+- 脱出：演出を表示してから`Set Game Paused`へ進む
+
+演出が正しく動くことを確認してから、対応する`Print String`を削除してください。
 
 </Hint>
 
 <Answer>
 
-一例として、捕獲用の`WBP_Caught`と脱出用の`WBP_Escaped`を作ります。どちらも画面中央に大きな文字を置き、捕獲は赤色、脱出は緑または水色にします。背景を半透明にしたり、Widget Animationで文字を拡大・フェードインさせたりすると、結果がさらに分かりやすくなります。
+一例として、次の3つのWidgetを作ります。
 
-捕獲処理では、`Print String`の代わりに`Create Widget`で`WBP_Caught`を作り、`Add to Viewport`へ接続します。そのあとに、既存の`Delay`と`Open Level (by Object Reference)`を接続します。
+| Widget | 表示内容の例 | 役割 |
+| ------ | ------------ | ---- |
+| `WBP_Caught` | 赤い背景と`CAUGHT!` | 捕まったことを伝える |
+| `WBP_ExitOpen` | 緑色の`EXIT OPEN!` | 脱出口が使えるようになったことを伝える |
+| `WBP_Escaped` | 青または緑の背景と`ESCAPED!` | 脱出成功を伝える |
+
+3つを同じ見た目にせず、色、文字の大きさ、表示位置、音などを変えると、何が起きたのか判断しやすくなります。
+
+### 捕獲演出
+
+`BP_Hunter`の捕獲処理で、`Print String`を`WBP_Caught`の表示へ置き換えます。
 
 ```text
 捕獲判定を無効にする
@@ -692,7 +726,31 @@ Delay: 2.0
 Open Level: L_NightEscape
 ```
 
-脱出処理では、`Print String`の代わりに`WBP_Escaped`を表示し、そのあとに`Set Game Paused`を実行します。
+捕獲音を使う場合は、Widgetを表示するときに再生します。`Delay`と`Open Level`は残します。これらを削除すると、演出を表示してもレベルが再スタートしません。
+
+### 脱出口の起動演出
+
+`BP_EscapeGate`の`ActivateEscapeGate`で、`Print String`を`WBP_ExitOpen`の表示へ置き換えます。
+
+```text
+Set Collision Enabled
+    ↓
+Set Light Color
+    ↓
+Create Widget: WBP_ExitOpen
+    ↓
+Add to Viewport
+    ↓
+Delay: 2.0
+    ↓
+Remove from Parent
+```
+
+`Create Widget`の`Return Value`を、`Add to Viewport`と`Remove from Parent`の両方で使います。2秒後にWidgetだけを消すため、脱出口が開いた状態とゲームの進行はそのまま残ります。
+
+### 脱出演出
+
+`BP_EscapeGate`の脱出処理で、`Print String`を`WBP_Escaped`の表示へ置き換えます。
 
 ```text
 脱出判定を無効にする
@@ -704,9 +762,15 @@ Add to Viewport
 Set Game Paused
 ```
 
-必要に応じて、Widgetを表示する前に捕獲音や脱出音を再生します。捕獲では画面を赤く点滅させ、脱出ではNiagaraや明るい効果音を使うなど、結果に合う演出にしてください。
+脱出音を使う場合は、`Set Game Paused`より前に再生します。脱出後はゲームを停止するため、結果画面は自分で消す必要はありません。
 
-Playして、捕まったときに捕獲用の演出が表示されたあと再スタートすること、脱出口へ入ったときに脱出用の演出が表示されてゲームが停止することを確認します。両方の結果を一目で見分けられ、元のゲーム進行が壊れていなければ完成です。
+最後にPlayし、次の順で確認します。
+
+1. ハンターに捕まると捕獲演出が表示され、2秒後に再スタートする
+2. 2つの起動装置を作動させると起動演出が表示され、2秒後に表示だけが消える
+3. 脱出口へ入ると脱出演出が表示され、ゲームが停止する
+
+3つの`Print String`を削除した状態で、3つの出来事が区別でき、元のゲーム進行も動けば完成です。
 
 </Answer>
 
