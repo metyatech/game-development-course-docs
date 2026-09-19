@@ -70,7 +70,6 @@ Required GitHub Actions secrets:
 
 ## Related docs
 
-- [SECURITY.md](SECURITY.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [LICENSE](LICENSE)
