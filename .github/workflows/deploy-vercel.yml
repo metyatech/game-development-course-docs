@@ -19,7 +19,7 @@ on:
                 description: Correlation ID used by a coordinated shared runtime release.
                 required: false
                 type: string
-                default: ""
+                default: ''
 
 permissions:
     contents: read
