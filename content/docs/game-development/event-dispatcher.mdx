@@ -1,0 +1,143 @@
+---
+title: "Event Dispatcher：スイッチの通知で扉を開く"
+---
+
+スイッチのBlueprintに扉や別の仕組みの処理まで書くと、通知先が増えるたびにスイッチ側の依存が増えます。ここでは、スイッチは「押された」と通知し、レベル側がその通知を受けて扉を開く形にします。
+
+<Prerequisites>
+
+- Unreal Engine 5.7.4のThird Person（Blueprint）プロジェクトを開いている
+- Actor、Box Collision、Overlap、Level Blueprintの基本操作を使える
+
+</Prerequisites>
+
+<Section title="元のレベルを残して作業場所を用意する" goal="プレイヤーがスイッチを踏むと通れる扉を作ります。">
+
+<Action title="作業用レベルを保存する">
+
+Content Drawerに`Lesson9/Maps`フォルダを作ります。元のThird Personレベルを開いた状態で`File`→`Save Current Level As...`を選び、`Content/Lesson9/Maps`に`L_ED_Demo`として保存します。以後は`L_ED_Demo`だけを編集します。
+
+既存の床と`PlayerStart`を使い、進路をふさぐように`Place Actors`の`Shapes`からCubeを1つ置きます。Cubeの名前を`DoorCube`にし、プレイヤーが通れない大きさにします。Cubeの衝突は有効のままにします。
+
+</Action>
+
+<Verify title="開始時に扉が進路をふさぐ">
+
+- `L_ED_Demo`が開いており、元のレベルも残っている
+- Playすると`DoorCube`が進路をふさいでいる
+
+</Verify>
+
+<Action title="BP_Switchを作る">
+
+`Content/Lesson9/Blueprints`フォルダに、親クラスが`Actor`の`BP_Switch`を作ります。Componentsで`Box Collision`と`Static Mesh`を追加し、Static MeshにはCubeを指定して小さくします。Static Meshの`Collision Presets`は`NoCollision`にして、見た目のCubeがプレイヤーやBoxのOverlapを妨げないようにします。
+
+`Box Collision`をスイッチの周囲に広げ、Detailsで次のように設定します。
+
+| 項目 | 設定 |
+| --- | --- |
+| Collision Presets | `OverlapOnlyPawn` |
+| Generate Overlap Events | 有効 |
+
+My Blueprintの`Event Dispatchers`で`+`を押し、名前を`OnActivated`にします。Inputsは追加せず、引数なしにします。
+
+</Action>
+
+<Action title="プレイヤーだけを一度通知する">
+
+Event GraphでBoxを選び、Detailsのイベント追加から`On Component Begin Overlap`を作ります。`Other Actor`と`Get Player Character`の`Return Value`を`Equal (Object)`に接続し、その結果を`Branch`の`Condition`に入れます。これで重なった相手がプレイヤーかを判定します。
+
+白い実行線は`On Component Begin Overlap`から`Branch`へ、`Branch`の`True`から`DoOnce`へつなぎます。`False`は未接続のままにします。`DoOnce`の出力から`Call OnActivated`を実行し、その出力を`Print String`（`通知: OnActivated`）につなぎます。`DoOnce`が同じスイッチからの2回目以降の通知を止めます。
+
+`BP_Switch`をCompileしてSaveし、`L_ED_Demo`へ配置します。レベル上でプレイヤーが触れられる位置に置いてから、レベルもSaveします。
+
+</Action>
+
+<Verify title="まだ扉が開かないことを確認する">
+
+いったんPlayしてスイッチを踏みます。`通知: OnActivated`は一度表示されますが、受信側をまだBindしていないので`DoorCube`は残ります。通知を呼び出しただけでは、扉の動作は起きません。
+
+</Verify>
+
+</Section>
+
+<Section title="レベル側で通知を受けて扉を開く" goal="L_ED_DemoのLevel Blueprintが通知をBindし、同じレベルのDoorCubeを開きます。">
+
+<Concept title="通知と受信処理を分ける">
+
+`OnActivated`は、`BP_Switch`が「プレイヤーに作動させられた」と伝えるEvent Dispatcherです。受信側は事前にBindしておく必要があり、BindされていないCallは何も受信者へ伝えません。
+
+</Concept>
+
+<Action title="レベル上の2つのActorを参照する">
+
+`L_ED_Demo`を開き、World Outlinerで配置した`BP_Switch`を選びます。ツールバーの`Blueprints`→`Open Level Blueprint`でLevel Blueprintを開き、グラフを右クリックして`Create a Reference to BP_Switch`を選びます。同じ操作で`DoorCube`も参照ノードを作ります。参照ノードは、このレベルに置いた各インスタンスを指します。
+
+</Action>
+
+<Action title="BeginPlayでBindする">
+
+`Event BeginPlay`から白い実行線を引き、`BP_Switch`参照の出力ピンからドラッグして`Bind Event to OnActivated`を追加します。Switch参照が`Target`につながっていることを確認します。
+
+Bindノードの赤い`Event`ピンからドラッグし、`Add Custom Event for Dispatcher`を選びます。作成されたCustom EventはDispatcherと同じ引数なしのシグネチャを持ちます。赤いdelegate線がBindの`Event`ピンにつながり、白いBeginPlay実行線がBindノードの実行入力につながっていることを確認します。
+
+```text
+Event BeginPlay ──白い実行線──> Bind Event to OnActivated
+BP_Switch参照 ───────────────> Target
+Bindの赤いEventピン ─────────> Dispatcher用Custom Event
+```
+
+</Action>
+
+<Action title="受信したら扉を隠して衝突を切る">
+
+Dispatcher用Custom Eventの白い実行出力から`Set Actor Hidden In Game`をつなぎます。`Target`には同じ`DoorCube`参照、`New Hidden`には`true`を指定します。続けて`Set Actor Enable Collision`をつなぎ、`Target`を同じ`DoorCube`参照、`New Actor Enable Collision`を`false`にします。
+
+```text
+OnActivatedを受信
+    ↓
+Set Actor Hidden In Game   Target: DoorCube   New Hidden: true
+    ↓
+Set Actor Enable Collision Target: DoorCube   New Actor Enable Collision: false
+```
+
+Level BlueprintをCompileしてSaveし、`L_ED_Demo`もSaveします。BindはBeginPlayで行うため、プレイヤーがOverlapする前に受信準備ができます。
+
+</Action>
+
+<Verify title="スイッチで一度だけ扉が開く">
+
+- Play開始時は`DoorCube`が見え、進路をふさいでいる
+- プレイヤーがスイッチに触れると`通知: OnActivated`が一度表示される
+- `DoorCube`が非表示になり、同じ場所を通り抜けられる
+- プレイヤー以外のActorをBoxに重ねても通知されず、扉は変化しない
+- Bindを外すと通知表示は出ても扉は変化しない
+
+</Verify>
+
+<Recovery title="プレイヤーが踏んでも通知されないとき">
+
+- Boxの`Generate Overlap Events`が有効で、`Collision Presets`が`OverlapOnlyPawn`か確認します。プレイヤーCharacterのCapsuleでも`Generate Overlap Events`が有効である必要があります。
+- Boxがプレイヤーの通り道にあり、`On Component Begin Overlap`の`Other Actor`と`Get Player Character`の`Return Value`が`Equal (Object)`の両入力につながっているか確認します。
+- `Branch`の`True`だけが`DoOnce`へつながり、その出力から`Call OnActivated`まで白い実行線があるか確認します。
+
+</Recovery>
+
+<Recovery title="通知は表示されるが扉が開かないとき">
+
+- `Event BeginPlay`からBindノードの白い実行入力へつながっているか確認します。
+- Bindの`Target`がレベル上の同じ`BP_Switch`インスタンスを指し、赤い`Event`ピンがDispatcher用Custom Eventにつながっているか確認します。
+- Custom Eventから2つのSetノードへ白い実行線が続き、両方の`Target`がレベル上の`DoorCube`か確認します。
+- 見えなくなったのに通れない場合は、`Set Actor Enable Collision`の値が`false`か確認します。
+
+</Recovery>
+
+<Reference title="Unreal Engine公式ドキュメント">
+
+- [Event Dispatchers](https://dev.epicgames.com/documentation/en-us/unreal-engine/event-dispatchers-in-unreal-engine)
+- [Binding and Unbinding Events](https://dev.epicgames.com/documentation/en-us/unreal-engine/binding-and-unbinding-events-in-unreal-engine)
+- [Creating Dispatcher Events（日本語）](https://dev.epicgames.com/documentation/unreal-engine/creating-dispatcher-events-in-unreal-engine?lang=ja)
+
+</Reference>
+
+</Section>

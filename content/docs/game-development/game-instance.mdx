@@ -1,0 +1,128 @@
+---
+title: "GameInstance：レベルを切り替えても値を引き継ぐ"
+---
+
+`Level Blueprint`の変数は、そのレベル内で使う値です。`Open Level`で別レベルへ移ると、移動先のLevel Blueprintにある同名の変数へ自動では引き継がれません。ここではScoreを使ってその違いを確認してから、GameInstanceで値を渡します。
+
+<Prerequisites>
+
+- Unreal Engine 5.7.4のThird Person（Blueprint）プロジェクトを開いている
+- Level Blueprint、整数変数、Cast、Open Levelの基本操作を使える
+
+</Prerequisites>
+
+<Section title="別々のLevel Blueprint変数を確認する" goal="L_GI_StageのScore=10が、L_GI_Resultでは0になることを見ます。">
+
+<Action title="2つの作業用レベルを作る">
+
+Content Drawerに`Lesson9/Maps`フォルダを作ります。元のThird Personレベルを開き、`File`→`Save Current Level As...`で`L_GI_Stage`として保存します。もう一度元のレベルを開き、同じ方法で`L_GI_Result`として保存します。元レベルは残し、以後はこの2つだけを使います。
+
+</Action>
+
+<Action title="StageにLevel Blueprint変数を作る">
+
+`L_GI_Stage`の`Level Blueprint`を開き、My Blueprintで整数型変数`Score`を作ります。Compileして初期値が`0`であることを確認します。`Event BeginPlay`の白い実行線から`Set Score`を実行し、値を`10`にします。
+
+Setの実行出力から`Print String`、`Delay`、`Open Level`を順につなぎます。`Get Score`を`ToString (int)`経由でPrint Stringの`In String`へつなぎ、Delayの`Duration`を`2.0`、Open Levelの`Level Name`を`L_GI_Result`にします。
+
+```text
+BeginPlay → Set Score (10) → Print String (Get Score) → Delay (2.0)
+          → Open Level (L_GI_Result)
+```
+
+`L_GI_Stage`のLevel BlueprintとレベルをCompile/Saveします。
+
+</Action>
+
+<Action title="Resultにも独立したScoreを作る">
+
+`L_GI_Result`の`Level Blueprint`を開き、整数型変数`Score`を作ります。Compileして初期値が`0`であることを確認します。`Event BeginPlay`から`Get Score`、`ToString (int)`、`Print String`の順につなぎ、画面に出る値を読み取れるようにします。ResultのLevel BlueprintとレベルをCompile/Saveします。
+
+</Action>
+
+<Verify title="Level Blueprintごとに値が分かれる">
+
+`L_GI_Stage`からPlayします。Stageで`10`が表示され、2秒後にResultへ移動して`0`が表示されます。2つの`Score`はそれぞれのLevel Blueprintが持つ独立した変数です。
+
+</Verify>
+
+</Section>
+
+<Section title="GameInstanceに値を置いてレベル間で読む" goal="BP_LessonGameInstanceのScoreを使い、Stageの10をResultへ渡します。">
+
+<Concept title="GameInstanceが残る範囲">
+
+GameInstanceはゲームの実行中に1つ使われ、レベルを移動しても同じインスタンスが残ります。そのため、別レベルから同じGameInstanceの変数を読み書きできます。エディタでPIEを停止するかゲームを終了すると破棄され、次の実行へ値は保存されません。これはSaveGameによる保存とは異なります。
+
+</Concept>
+
+<Action title="BP_LessonGameInstanceを作る">
+
+Content Drawerで`Blueprint Class`を作り、親クラスに`GameInstance`を選びます。名前を`BP_LessonGameInstance`にします。My Blueprintで整数型変数`Score`を作り、初期値を`0`にしてCompile/Saveします。
+
+メニューの`Edit`→`Project Settings`→`Maps & Modes`を開き、`Game Instance`欄の`Game Instance Class`に`BP_LessonGameInstance`を指定します。PIE中なら一度Stopします。
+
+</Action>
+
+<Action title="StageからGameInstanceへScoreを書く">
+
+`L_GI_Stage`のLevel Blueprintを開き、ローカル変数`Score`を使っていたBeginPlayの処理を置き換えます。次の順にノードを置きます。
+
+1. `Event BeginPlay`の白い実行出力から`Get Game Instance`を呼びます。
+2. `Get Game Instance`の`Return Value`を`Cast To BP_LessonGameInstance`の`Object`へつなぎます。
+3. BeginPlayの白い実行線をCastの実行入力へつなぎます。
+4. Cast成功の白い実行出力から`Set Score`を実行します。TargetにはCast成功の`As BP_LessonGameInstance`をつなぎ、値を`10`にします。
+5. Setの実行出力から`Print String`、`Delay`、`Open Level`を順につなぎます。GameInstanceの`Get Score`を`ToString (int)`経由でPrint Stringの`In String`へつなぎ、Delayは`2.0`、`Level Name`は`L_GI_Result`にします。
+
+```text
+BeginPlay → Get Game Instance → Cast To BP_LessonGameInstance
+                                  └─成功→ Set Score (10) → Print Score
+                                                        → Delay (2.0)
+                                                        → Open Level (L_GI_Result)
+```
+
+Castの`Cast Failed`実行ピンから別の`Print String`へつなぎ、`Cast失敗：Maps & ModesのGame Instance Classを確認`と表示させます。Castが失敗すると成功側のSetとOpen Levelは実行されません。
+
+</Action>
+
+<Action title="ResultからGameInstanceのScoreを読む">
+
+`L_GI_Result`のLevel Blueprintを開き、`Event BeginPlay`から`Get Game Instance`、`Cast To BP_LessonGameInstance`の順につなぎます。Getの`Return Value`をCastの`Object`へ、BeginPlayの白い実行出力をCastの実行入力へつなぎます。
+
+Cast成功の白い実行出力から`Print String`を実行します。Castの`As BP_LessonGameInstance`をTargetにした`Get Score`を置き、値を`ToString (int)`経由で`Print String`の`In String`へつなぎます。Cast Failedからは`Print String`へつなぎ、`Cast失敗：Maps & ModesのGame Instance Classを確認`と表示します。Level BlueprintとレベルをCompile/Saveします。
+
+</Action>
+
+<Verify title="同じPIE中にScore=10を引き継ぐ">
+
+- StageではGameInstanceの`Score`に`10`を設定し、表示も`10`になる
+- `L_GI_Result`へ移動したあとも、GameInstanceから読んだ値が`10`になる
+- StageとResultに同名のローカル変数が残っていても、今回の表示はGameInstanceの`Score`から読んでいる
+- PIEをStopしたあと`L_GI_Result`を開いてから新しくPlayすると、まだStageを通っていないため`0`が表示される。GameInstanceは新しく作られ、初期値から始まる
+- そのPIEをStopし、`L_GI_Stage`からPlayすると、Stageで`10`を設定した後にResultでも`10`が表示される
+
+</Verify>
+
+<Recovery title="Cast失敗の表示が出るとき">
+
+`Edit`→`Project Settings`→`Maps & Modes`→`Game Instance`の`Game Instance Class`が`BP_LessonGameInstance`か確認します。設定後はPIEをStopして再実行します。未設定だとCast Failedから先へ進み、`BP_LessonGameInstance`の`Score`へ`10`が書かれず、初期値の`0`のままです。Cast Failedにつないだ`Print String`が設定漏れを知らせます。
+
+</Recovery>
+
+<Recovery title="Resultに10が表示されないとき">
+
+- StageのCast成功から`Set Score`を実行し、Targetが`As BP_LessonGameInstance`、値が`10`か確認します。
+- StageとResultの両方で`Get Game Instance`をCastし、Cast成功側から読み書きしているか確認します。
+- `Open Level`の`Level Name`がマップ名と同じ`L_GI_Result`か確認します。名前が違うとResultへ移動しません。
+- 画面に出す`Get Score`のTargetがLevel Blueprintのローカル変数ではなく、Cast成功の`As BP_LessonGameInstance`か確認します。
+
+</Recovery>
+
+<Reference title="Unreal Engine公式ドキュメント">
+
+- [Gameplay Framework: Game Instance](https://dev.epicgames.com/documentation/unreal-engine/gameplay-framework-in-unreal-engine)
+- [Project Settings: Maps & Modes](https://dev.epicgames.com/documentation/unreal-engine/project-section-of-the-unreal-engine-project-settings)
+
+</Reference>
+
+</Section>
