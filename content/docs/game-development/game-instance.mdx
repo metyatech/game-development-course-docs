@@ -68,17 +68,18 @@ Content Drawerで`Blueprint Class`を作り、親クラスに`GameInstance`を�
 
 `L_GI_Stage`のLevel Blueprintを開き、ローカル変数`Score`を使っていたBeginPlayの処理を置き換えます。次の順にノードを置きます。
 
-1. `Event BeginPlay`の白い実行出力から`Get Game Instance`を呼びます。
-2. `Get Game Instance`の`Return Value`を`Cast To BP_LessonGameInstance`の`Object`へつなぎます。
-3. BeginPlayの白い実行線をCastの実行入力へつなぎます。
+1. `Get Game Instance`を単独の純粋ノードとして置きます。このノードに白い実行ピンはありません。
+2. `Get Game Instance`の`Return Value`から`Cast To BP_LessonGameInstance`の`Object`へデータ線をつなぎます。
+3. `Event BeginPlay`の白い実行出力からCastの白い実行入力へ、実行線を直接つなぎます。実行線は`Get Game Instance`を通りません。
 4. Cast成功の白い実行出力から`Set Score`を実行します。TargetにはCast成功の`As BP_LessonGameInstance`をつなぎ、値を`10`にします。
 5. Setの実行出力から`Print String`、`Delay`、`Open Level`を順につなぎます。GameInstanceの`Get Score`を`ToString (int)`経由でPrint Stringの`In String`へつなぎ、Delayは`2.0`、`Level Name`は`L_GI_Result`にします。
 
 ```text
-BeginPlay → Get Game Instance → Cast To BP_LessonGameInstance
-                                  └─成功→ Set Score (10) → Print Score
-                                                        → Delay (2.0)
-                                                        → Open Level (L_GI_Result)
+白い実行線:
+BeginPlay → Cast To BP_LessonGameInstance →成功→ Set Score (10) → Print Score → Delay (2.0) → Open Level (L_GI_Result)
+
+データ線:
+Get Game Instance.Return Value ──→ Cast.Object
 ```
 
 Castの`Cast Failed`実行ピンから別の`Print String`へつなぎ、`Cast失敗：Maps & ModesのGame Instance Classを確認`と表示させます。Castが失敗すると成功側のSetとOpen Levelは実行されません。
@@ -87,7 +88,7 @@ Castの`Cast Failed`実行ピンから別の`Print String`へつなぎ、`Cast�
 
 <Action title="ResultからGameInstanceのScoreを読む">
 
-`L_GI_Result`のLevel Blueprintを開き、`Event BeginPlay`から`Get Game Instance`、`Cast To BP_LessonGameInstance`の順につなぎます。Getの`Return Value`をCastの`Object`へ、BeginPlayの白い実行出力をCastの実行入力へつなぎます。
+`L_GI_Result`のLevel Blueprintを開き、純粋ノードの`Get Game Instance`と`Cast To BP_LessonGameInstance`を別々に置きます。`Get Game Instance`に白い実行ピンはありません。`Return Value`からCastの`Object`へデータ線をつなぎ、`Event BeginPlay`の白い実行出力からCastの白い実行入力へ実行線を直接つなぎます。
 
 Cast成功の白い実行出力から`Print String`を実行します。Castの`As BP_LessonGameInstance`をTargetにした`Get Score`を置き、値を`ToString (int)`経由で`Print String`の`In String`へつなぎます。Cast Failedからは`Print String`へつなぎ、`Cast失敗：Maps & ModesのGame Instance Classを確認`と表示します。Level BlueprintとレベルをCompile/Saveします。
 
