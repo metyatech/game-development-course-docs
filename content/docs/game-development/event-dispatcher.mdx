@@ -2,7 +2,15 @@
 title: "Event Dispatcher：スイッチの通知で扉を開く"
 ---
 
-スイッチのBlueprintに扉や別の仕組みの処理まで書くと、通知先が増えるたびにスイッチ側の依存が増えます。ここでは、スイッチは「押された」と通知し、レベル側がその通知を受けて扉を開く形にします。
+プレイヤーが床のスイッチを踏むと、目の前の扉が消えて通れるようになる仕組みを作ります。スイッチが扉を直接動かすのではなく、「押された」という合図を送り、レベル側がその合図を受けて扉を開きます。
+
+扉1枚だけなら、スイッチから扉を直接操作するほうが簡単な場合もあります。ただし、扉・照明・効果など連動先が増えるたびにスイッチがそれぞれの処理を知ると、機能追加や再利用のたびにスイッチも直すことになります。Event Dispatcherは、送る側が「何が起きたか」を知らせ、受け取る側が「そのとき何をするか」を決める通知の仕組みです。`Call`は合図を発行する操作、`Bind`は合図を受けたときの処理を事前登録する操作です。今回は通知方式を選ぶ意味を試すために使います。
+
+```text
+プレイヤーが踏む → BP_Switch（OnActivatedをCall）→ Level Blueprint（Bindして受信）→ DoorCube（非表示・通行可能）
+```
+
+まずBind前に「通知は出るが扉は閉じたまま」を確かめ、その後Bindして扉が開く状態と比べます。これで、合図を出すことと受け取った後の処理が別だと確認できます。
 
 <Prerequisites>
 
@@ -14,6 +22,8 @@ title: "Event Dispatcher：スイッチの通知で扉を開く"
 <Section title="元のレベルを残して作業場所を用意する" goal="プレイヤーがスイッチを踏むと通れる扉を作ります。">
 
 <Action title="作業用レベルを保存する">
+
+扉とスイッチを置く専用のレベルを作り、元のThird Personレベルは残します。
 
 Content Drawerに`Lesson9/Maps`フォルダを作ります。元のThird Personレベルを開いた状態で`File`→`Save Current Level As...`を選び、`Content/Lesson9/Maps`に`L_ED_Demo`として保存します。以後は`L_ED_Demo`だけを編集します。
 
@@ -30,6 +40,8 @@ Content Drawerに`Lesson9/Maps`フォルダを作ります。元のThird Person�
 
 <Action title="BP_Switchを作る">
 
+プレイヤーが踏める範囲と見た目を用意し、通知の名前だけを先に決めます。ここでは扉を動かす処理をスイッチに入れません。
+
 `Content/Lesson9/Blueprints`フォルダに、親クラスが`Actor`の`BP_Switch`を作ります。Componentsで`Box Collision`と`Static Mesh`を追加し、Static MeshにはCubeを指定して小さくします。Static Meshの`Collision Presets`は`NoCollision`にして、見た目のCubeがプレイヤーやBoxのOverlapを妨げないようにします。
 
 `Box Collision`をスイッチの周囲に広げ、Detailsで次のように設定します。
@@ -45,6 +57,8 @@ My Blueprintの`Event Dispatchers`で`+`を押し、名前を`OnActivated`にし
 
 <Action title="プレイヤーだけを一度通知する">
 
+重なったActorがプレイヤーのときだけ合図を発行し、入り直しなどで同じスイッチから何度も通知しないようにします。
+
 Event GraphでBoxを選び、Detailsのイベント追加から`On Component Begin Overlap`を作ります。`Other Actor`と`Get Player Character`の`Return Value`を`Equal (Object)`に接続し、その結果を`Branch`の`Condition`に入れます。これで重なった相手がプレイヤーかを判定します。
 
 白い実行線は`On Component Begin Overlap`から`Branch`へ、`Branch`の`True`から`DoOnce`へつなぎます。`False`は未接続のままにします。`DoOnce`の出力から`Call OnActivated`を実行し、その出力を`Print String`（`通知: OnActivated`）につなぎます。`DoOnce`が同じスイッチからの2回目以降の通知を止めます。
@@ -55,7 +69,7 @@ Event GraphでBoxを選び、Detailsのイベント追加から`On Component Beg
 
 <Verify title="まだ扉が開かないことを確認する">
 
-いったんPlayしてスイッチを踏みます。`通知: OnActivated`は一度表示されますが、受信側をまだBindしていないので`DoorCube`は残ります。通知を呼び出しただけでは、扉の動作は起きません。
+いったんPlayしてスイッチを踏みます。`通知: OnActivated`は一度表示されますが、受信側をまだBindしていないので`DoorCube`は残ります。この状態を先に見るのは、Callが合図を発行するだけで、受信側の処理はBindして初めて動くことを比べるためです。
 
 </Verify>
 
@@ -65,17 +79,21 @@ Event GraphでBoxを選び、Detailsのイベント追加から`On Component Beg
 
 <Concept title="通知と受信処理を分ける">
 
-`OnActivated`は、`BP_Switch`が「プレイヤーに作動させられた」と伝えるEvent Dispatcherです。受信側は事前にBindしておく必要があり、BindされていないCallは何も受信者へ伝えません。
+`OnActivated`は、`BP_Switch`が「プレイヤーに作動させられた」と伝えるEvent Dispatcherです。Callはこの合図を発行し、Bindは受信側に「合図が来たらこの処理をする」と事前登録します。BindされていないCallでは、受信側の処理は動きません。
 
 </Concept>
 
 <Action title="レベル上の2つのActorを参照する">
+
+Level Blueprintが合図を受け取るには、このレベルに配置したスイッチを指定する必要があります。扉も後で受信処理から操作できるよう参照します。
 
 `L_ED_Demo`を開き、World Outlinerで配置した`BP_Switch`を選びます。ツールバーの`Blueprints`→`Open Level Blueprint`でLevel Blueprintを開き、グラフを右クリックして`Create a Reference to BP_Switch`を選びます。同じ操作で`DoorCube`も参照ノードを作ります。参照ノードは、このレベルに置いた各インスタンスを指します。
 
 </Action>
 
 <Action title="BeginPlayでBindする">
+
+ゲーム開始時に受信先を登録し、プレイヤーがスイッチに触れる前から合図を受け取れるようにします。
 
 `Event BeginPlay`から白い実行線を引き、`BP_Switch`参照の出力ピンからドラッグして`Bind Event to OnActivated`を追加します。Switch参照が`Target`につながっていることを確認します。
 
@@ -90,6 +108,8 @@ Bindの赤いEventピン ─────────> Dispatcher用Custom Event
 </Action>
 
 <Action title="受信したら扉を隠して衝突を切る">
+
+合図を受けたときに扉を見えなくし、見た目だけでなく実際に通れる状態にします。
 
 Dispatcher用Custom Eventの白い実行出力から`Set Actor Hidden In Game`をつなぎます。`Target`には同じ`DoorCube`参照、`New Hidden`には`true`を指定します。続けて`Set Actor Enable Collision`をつなぎ、`Target`を同じ`DoorCube`参照、`New Actor Enable Collision`を`false`にします。
 
