@@ -51,7 +51,7 @@ BeginPlay → Set Score (10) → Print String (Get Score) → Delay (2.0)
 
 Result側にも別の`Score`を作り、Stageの変数と共有されないことを表示で確かめます。
 
-`L_GI_Result`の`Level Blueprint`を開き、整数型変数`Score`を作ります。Compileして初期値が`0`であることを確認します。`Event BeginPlay`から`Get Score`、`ToString (int)`、`Print String`の順につなぎ、画面に出る値を読み取れるようにします。ResultのLevel BlueprintとレベルをCompile/Saveします。
+`L_GI_Result`の`Level Blueprint`を開き、整数型変数`Score`を作ります。Compileして初期値が`0`であることを確認します。`Event BeginPlay`の白い実行出力から`Print String`の白い実行入力へ、白い実行線をつなぎます。`Get Score`はLevel Blueprint変数の値を読む純粋ノードで、`ToString (int)`も純粋ノードです。`Get Score`の値出力から`ToString (int)`の入力へ、さらに`Print String`の`In String`へデータ線をつなぎます。この2つの純粋ノードに白い実行ピンはありません。PlayするとResultの`Score`初期値`0`が表示されます。ResultのLevel BlueprintとレベルをCompile/Saveします。
 
 </Action>
 
