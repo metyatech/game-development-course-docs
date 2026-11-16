@@ -1,162 +1,201 @@
 ---
-title: "Event Dispatcher：スイッチの通知で扉を開く"
+title: "Event Dispatcher：HPの変化を通知しよう"
 ---
 
-プレイヤーが床のスイッチを踏むと、目の前の扉が消えて通れるようになる仕組みを作ります。スイッチが扉を直接動かすのではなく、「押された」という合図を送り、レベル側がその合図を受けて扉を開きます。
-
-扉1枚だけなら、スイッチから扉を直接操作するほうが簡単な場合もあります。ただし、扉・照明・効果など連動先が増えるたびにスイッチがそれぞれの処理を知ると、機能追加や再利用のたびにスイッチも直すことになります。Event Dispatcherは、送る側が「何が起きたか」を知らせ、受け取る側が「そのとき何をするか」を決める通知の仕組みです。`Call`は合図を発行する操作、`Bind`は合図を受けたときの処理を事前登録する操作です。今回は通知方式を選ぶ意味を試すために使います。
-
-```text
-プレイヤーが踏む → BP_Switch（OnActivatedをCall）→ Level Blueprint（Bindして受信）→ DoorCube（非表示・通行可能）
-```
-
-まずBind前に「通知は出るが扉は閉じたまま」を確かめ、その後Bindして扉が開く状態と比べます。これで、合図を出すことと受け取った後の処理が別だと確認できます。
+今回は、以前作ったゲームのHP表示を改良します。今までは、プレイヤーのCharacterがHUDの関数を直接呼び出していました。この仕組みを、HPが変わったことを通知し、HUDがその通知を受け取る仕組みに変更します。新しいActorやWidgetは作りません。
 
 <Prerequisites>
 
-- Unreal Engine 5.7.4のThird Person（Blueprint）プロジェクトを開いている
-- Actor、Box Collision、Overlap、Level Blueprintの基本操作を使える
+- Unreal Engine 5.7.4を使う
+- 「デザイナー07：トラップとダメージ」を完成させたプロジェクトを開く
+- `BP_AdventureCharacter`、`WBP_PlayerHUD`、`Health`、`fnSetHP(NewHP: Float)`がある
+- トラップでダメージを受けると、CharacterのHPが減る
 
 </Prerequisites>
 
-<Section title="元のレベルを残して作業場所を用意する" goal="プレイヤーがスイッチを踏むと通れる扉を作ります。">
+<Section title="今までの仕組みと、その問題点" goal="直接呼び出しの仕組みを確認し、通知方式が役立つ場面を理解する">
 
-<Action title="作業用レベルを保存する">
+### STEP 1｜今までのHP更新を確認しよう
 
-扉とスイッチを置く専用のレベルを作り、元のThird Personレベルは残します。
+<Action title="既存の直接呼び出しを観察する">
 
-Content Drawerに`Lesson9/Maps`フォルダを作ります。元のThird Personレベルを開いた状態で`File`→`Save Current Level As...`を選び、`Content/Lesson9/Maps`に`L_ED_Demo`として保存します。以後は`L_ED_Demo`だけを編集します。
+1. Playし、トラップを踏みます。HUDのHP表示が減ることを確認してPlayを止めます。
+2. `BP_AdventureCharacter`のEvent Graphを開き、`Event AnyDamage`付近で`fnSetHP`を呼び出している箇所を探します。
 
-既存の床と`PlayerStart`を使い、進路をふさぐように`Place Actors`の`Shapes`からCubeを1つ置きます。Cubeの名前を`DoorCube`にし、プレイヤーが通れない大きさにします。Cubeの衝突は有効のままにします。
-
-</Action>
-
-<Verify title="開始時に扉が進路をふさぐ">
-
-- `L_ED_Demo`が開いており、元のレベルも残っている
-- Playすると`DoorCube`が進路をふさいでいる
-
-</Verify>
-
-<Action title="BP_Switchを作る">
-
-プレイヤーが踏める範囲と見た目を用意し、通知の名前だけを先に決めます。ここでは扉を動かす処理をスイッチに入れません。
-
-`Content/Lesson9/Blueprints`フォルダに、親クラスが`Actor`の`BP_Switch`を作ります。Componentsで`Box Collision`と`Static Mesh`を追加し、Static MeshにはCubeを指定して小さくします。Static Meshの`Collision Presets`は`NoCollision`にして、見た目のCubeがプレイヤーやBoxのOverlapを妨げないようにします。
-
-`Box Collision`をスイッチの周囲に広げ、Detailsで次のように設定します。
-
-| 項目 | 設定 |
-| --- | --- |
-| Collision Presets | `OverlapOnlyPawn` |
-| Generate Overlap Events | 有効 |
-
-My Blueprintの`Event Dispatchers`で`+`を押し、名前を`OnActivated`にします。Inputsは追加せず、引数なしにします。
+```text
+Damage → Healthを更新 → HUD.fnSetHP → HP表示を更新
+```
 
 </Action>
 
-<Action title="プレイヤーだけを一度通知する">
+<Concept title="今の作り方も正しい">
 
-重なったActorがプレイヤーのときだけ合図を発行し、入り直しなどで同じスイッチから何度も通知しないようにします。
-
-Event GraphでBoxを選び、Detailsのイベント追加から`On Component Begin Overlap`を作ります。`Other Actor`と`Get Player Character`の`Return Value`を`Equal (Object)`に接続し、その結果を`Branch`の`Condition`に入れます。これで重なった相手がプレイヤーかを判定します。
-
-白い実行線は`On Component Begin Overlap`から`Branch`へ、`Branch`の`True`から`DoOnce`へつなぎます。`False`は未接続のままにします。`DoOnce`の出力から`Call OnActivated`を実行し、その出力を`Print String`（`通知: OnActivated`）につなぎます。`DoOnce`が同じスイッチからの2回目以降の通知を止めます。
-
-`BP_Switch`をCompileしてSaveし、`L_ED_Demo`へ配置します。レベル上でプレイヤーが触れられる位置に置いてから、レベルもSaveします。
-
-</Action>
-
-<Verify title="まだ扉が開かないことを確認する">
-
-いったんPlayしてスイッチを踏みます。`通知: OnActivated`は一度表示されますが、受信側をまだBindしていないので`DoorCube`は残ります。この状態を先に見るのは、Callが合図を発行するだけで、受信側の処理はBindして初めて動くことを比べるためです。
-
-</Verify>
-
-</Section>
-
-<Section title="レベル側で通知を受けて扉を開く" goal="L_ED_DemoのLevel Blueprintが通知をBindし、同じレベルのDoorCubeを開きます。">
-
-<Concept title="通知と受信処理を分ける">
-
-`OnActivated`は、`BP_Switch`が「プレイヤーに作動させられた」と伝えるEvent Dispatcherです。Callはこの合図を発行し、Bindは受信側に「合図が来たらこの処理をする」と事前登録します。BindされていないCallでは、受信側の処理は動きません。
+表示処理を`fnSetHP`にまとめれば、HUDの見た目だけを変えるときにCharacterを変更せずに済みます。特定の相手に処理を頼むなら、直接呼び出す方法はシンプルで合理的です。
 
 </Concept>
 
-<Action title="レベル上の2つのActorを参照する">
+<Verify title="直接呼び出しを確認する">
 
-Level Blueprintが合図を受け取るには、このレベルに配置したスイッチを指定する必要があります。扉も後で受信処理から操作できるよう参照します。
-
-`L_ED_Demo`を開き、World Outlinerで配置した`BP_Switch`を選びます。ツールバーの`Blueprints`→`Open Level Blueprint`でLevel Blueprintを開き、グラフを右クリックして`Create a Reference to BP_Switch`を選びます。同じ操作で`DoorCube`も参照ノードを作ります。参照ノードは、このレベルに置いた各インスタンスを指します。
-
-</Action>
-
-<Action title="BeginPlayでBindする">
-
-ゲーム開始時に受信先を登録し、プレイヤーがスイッチに触れる前から合図を受け取れるようにします。
-
-`Event BeginPlay`から白い実行線を引き、`BP_Switch`参照の出力ピンからドラッグして`Bind Event to OnActivated`を追加します。Switch参照が`Target`につながっていることを確認します。
-
-Bindノードの赤い`Event`ピンからドラッグし、`Add Custom Event for Dispatcher`を選びます。作成されたCustom EventはDispatcherと同じ引数なしのシグネチャを持ちます。赤いdelegate線がBindの`Event`ピンにつながり、白いBeginPlay実行線がBindノードの実行入力につながっていることを確認します。
-
-```text
-Event BeginPlay ──白い実行線──> Bind Event to OnActivated
-BP_Switch参照 ───────────────> Target
-Bindの赤いEventピン ─────────> Dispatcher用Custom Event
-```
-
-</Action>
-
-<Action title="受信したら扉を隠して衝突を切る">
-
-合図を受けたときに扉を見えなくし、見た目だけでなく実際に通れる状態にします。
-
-Dispatcher用Custom Eventの白い実行出力から`Set Actor Hidden In Game`をつなぎます。`Target`には同じ`DoorCube`参照、`New Hidden`には`true`を指定します。続けて`Set Actor Enable Collision`をつなぎ、`Target`を同じ`DoorCube`参照、`New Actor Enable Collision`を`false`にします。
-
-```text
-OnActivatedを受信
-    ↓
-Set Actor Hidden In Game   Target: DoorCube   New Hidden: true
-    ↓
-Set Actor Enable Collision Target: DoorCube   New Actor Enable Collision: false
-```
-
-Level BlueprintをCompileしてSaveし、`L_ED_Demo`もSaveします。BindはBeginPlayで行うため、プレイヤーがOverlapする前に受信準備ができます。
-
-</Action>
-
-<Verify title="スイッチで一度だけ扉が開く">
-
-- Play開始時は`DoorCube`が見え、進路をふさいでいる
-- プレイヤーがスイッチに触れると`通知: OnActivated`が一度表示される
-- `DoorCube`が非表示になり、同じ場所を通り抜けられる
-- プレイヤー以外のActorをBoxに重ねても通知されず、扉は変化しない
-- Bindを外すと通知表示は出ても扉は変化しない
+- トラップを踏むと、HUDのHP表示が減る
+- `Event AnyDamage`付近に`fnSetHP`の呼び出しがある
+- `fnSetHP`がHUDの表示を更新する
 
 </Verify>
 
-<Recovery title="プレイヤーが踏んでも通知されないとき">
+### STEP 2｜今の作り方で困ることはある？
 
-- Boxの`Generate Overlap Events`が有効で、`Collision Presets`が`OverlapOnlyPawn`か確認します。プレイヤーCharacterのCapsuleでも`Generate Overlap Events`が有効である必要があります。
-- Boxがプレイヤーの通り道にあり、`On Component Begin Overlap`の`Other Actor`と`Get Player Character`の`Return Value`が`Equal (Object)`の両入力につながっているか確認します。
-- `Branch`の`True`だけが`DoOnce`へつながり、その出力から`Call OnActivated`まで白い実行線があるか確認します。
+最初の変更要求を考えます。**「HPを表示するWidgetを、別のWidgetに交換したい！」**
+
+今のままでは、Characterが特定のHUDの`fnSetHP`を直接呼び出します。Widgetの交換に伴って、Characterが持つHP処理の参照先や呼び出し先も見直す必要が生じることがあります。
+
+|役割|担当|
+|---|---|
+|HPの計算と管理|Character|
+|HPの表示|HUD|
+
+HPの計算は変わっていないのに、表示先の変更によってCharacterのHP処理まで修正するのは、できれば避けたいですよね。
+
+ダメージ記録やHPに応じた音など、別の独立した機能が必要になった場合も同じです。Characterが各機能の呼び出し先まで知っていると、**機能変更が本来別の責務を持つCharacterに波及します**。
+
+Characterは「HPが変わった！」という事実だけを知らせて、その後の処理は受け取った側に任せられないでしょうか？
+
+<Concept title="Event Dispatcherとは？">
+
+Event Dispatcherは、**起きた事実を通知する仕組み**です。`Call`は通知を発行し、`Bind`は通知を受けたときに実行するイベントを登録します。Characterは、受信側の具体的な関数を知る必要がありません。
+
+```text
+Character → OnHealthChanged → HUD → fnSetHP
+```
+
+</Concept>
+
+</Section>
+
+<Section title="Event DispatcherでHP更新を改良する" goal="HPの変更をCharacterから通知し、HUDで受け取って表示を更新する">
+
+### STEP 3｜CharacterからHPの変化を通知しよう
+
+<Action title="HP変更後にEvent DispatcherをCallする">
+
+#### 1. Dispatcherを作成する
+
+`BP_AdventureCharacter`のMy Blueprintで、`Event Dispatchers`の`+`を押します。名前を`OnHealthChanged`にし、Inputsに次の引数を追加します。
+
+|項目|設定|
+|---|---|
+|名前|`NewHP`|
+|型|`Float`|
+
+#### 2. HP更新後に通知をつなぐ
+
+Event Graphの`Event AnyDamage`で、既存の`Set Health`の**白い実行出力**の後に`Call OnHealthChanged`を置きます。`Get Health`の**Float出力**を、Callの`NewHP`入力につなぎます。
+
+|ノード|白い実行線|Floatデータ|
+|---|---|---|
+|既存の`Set Health`|出力から`Call OnHealthChanged`の実行入力へ|—|
+|`Call OnHealthChanged`|実行出力から既存の死亡判定`Branch`へ|`Get Health`から`NewHP`へ|
+|既存の死亡判定`Branch`|True側は既存の死亡処理を維持。False側は既存の通常処理を維持|TrueはHPが0以下、Falseは通常側|
+
+**Callは死亡判定より前**に置きます。HPが0または負の値になった場合も、更新後のHPを通知してから既存の死亡判定を実行できます。HPが正の値なら、既存の通常側の動作をそのまま続けます。
+
+`Branch`のFalse側にある古いHUDの`fnSetHP`呼び出しだけを外し、残りの通常処理は維持します。HP計算や死亡処理を作り直す必要はありません。
+
+設定後、`BP_AdventureCharacter`をCompileしてSaveします。
+
+</Action>
+
+<Verify title="HP更新の後に通知される">
+
+- `Set Health`の後に`Call OnHealthChanged`が実行される
+- `Get Health`のFloat値が`NewHP`に渡る
+- Callの後に既存の死亡判定Branchが実行される
+- BranchのFalse側に古いHUDの`fnSetHP`呼び出しが残っていない
+- BranchのTrue側にある既存の死亡処理が残っている
+
+</Verify>
+
+### STEP 4｜HUDで通知を受け取ろう
+
+<Action title="HUDをBindして初期HPを表示する">
+
+#### 1. Characterを取得してDispatcherをBindする
+
+`WBP_PlayerHUD`のEvent Graphで、Widgetの初期化イベント`Event OnInitialized`から始めます。`Get Player Character`の`Return Value`を`Cast To BP_AdventureCharacter`の`Object`につなぎます。
+
+Cast成功の白い実行出力から`Bind Event to OnHealthChanged`を実行し、Cast結果をBindの`Target`につなぎます。
+
+#### 2. 通知を既存関数へ渡す
+
+Bindの赤い`Event`ピンから、Dispatcherのシグネチャに一致するCustom Eventを作ります。名前を`ReceiveHealthChanged`にします。引数は`NewHP`（Float）です。
+
+|接続|つなぐ先|
+|---|---|
+|Bindの赤い`Event`ピン|`ReceiveHealthChanged(NewHP: Float)`|
+|Custom Eventの白い実行出力|既存の`fnSetHP`の実行入力|
+|Custom Eventの`NewHP`（Float）|`fnSetHP`の`NewHP`入力|
+
+#### 3. Bindの後に現在のHPを表示する
+
+Bindより前に発行された通知は、後からBindしても再生されません。**CastとBindが成功した後**、Cast結果からCharacterの現在の`Health`を取得し、既存の`fnSetHP`へ渡して初期表示を設定します。
+
+|接続|つなぐ先|
+|---|---|
+|Bindの白い実行出力|`fnSetHP`の白い実行入力へ|
+|Cast結果|Characterの`Health`を読む参照元|
+|`Get Health`のFloat出力|`fnSetHP`の`NewHP`入力|
+
+続いて`BP_AdventureCharacter`の`Event Possessed`を開きます。`Set HUD`と`Add to Viewport`の間にある、**初期HP表示専用の`fnSetHP`だけ**を外し、白い実行線をつなぎ直します。HUDの生成・保存・`Add to Viewport`と、鍵表示など他の処理は維持します。初期表示はHUD自身が行うため、HPを二重に更新しません。
+
+`WBP_PlayerHUD`と`BP_AdventureCharacter`をCompileしてSaveします。
+
+</Action>
+
+<Verify title="初期HP、ダメージ、既存機能を確認する">
+
+- Play開始時に、現在のHPがHUDに表示される
+- トラップでダメージを受けると、HUDのHP表示が変わる
+- HPが0になると既存の死亡処理が動き、レベル再開も従来どおり動く
+- 既存の鍵表示が動く
+- `Event Possessed`の初期HP表示用`fnSetHP`が残っていない
+
+</Verify>
+
+<Recovery title="通知されない、または初期HPが表示されないとき">
+
+- Castが失敗する場合は、`Get Player Character`の`Return Value`がCastの`Object`につながり、対象が`BP_AdventureCharacter`か確認します。
+- Bindが実行されない場合は、`Event OnInitialized`からCastへ、Cast成功ExecからBindの白い実行入力へ線があるか確認します。
+- 通知を受け取れない場合は、Bindの`Target`がCast結果で、赤い`Event`ピンから作った`ReceiveHealthChanged`がDelegateに結線されているか確認します。
+- HP値が変わらない場合は、`Get Health`→CallのFloat `NewHP`、およびCustom EventのFloat `NewHP`→`fnSetHP`の`NewHP`がつながっているか確認します。
+- 初期HPが出ない場合は、Bind成功後に現在の`Health`を取得して`fnSetHP`へ渡しているか確認します。`Event Possessed`の古い初期表示呼び出しが残っていないことも確認します。
+- HP0や再開後に死亡処理が動かない場合は、Callの白い実行出力が既存Branchにつながり、True側の死亡処理が残っているか確認します。
 
 </Recovery>
 
-<Recovery title="通知は表示されるが扉が開かないとき">
+### STEP 5｜直接呼び出しとの違いを理解しよう
 
-- `Event BeginPlay`からBindノードの白い実行入力へつながっているか確認します。
-- Bindの`Target`がレベル上の同じ`BP_Switch`インスタンスを指し、赤い`Event`ピンがDispatcher用Custom Eventにつながっているか確認します。
-- Custom Eventから2つのSetノードへ白い実行線が続き、両方の`Target`がレベル上の`DoorCube`か確認します。
-- 見えなくなったのに通れない場合は、`Set Actor Enable Collision`の値が`false`か確認します。
+```text
+前：Character → WBP_PlayerHUD.fnSetHP
+後：Character → OnHealthChanged(NewHP) → BindしたHUD → fnSetHP
+                                  └→ Bindした記録システム
+```
 
-</Recovery>
+|比較点|直接呼び出し|Event Dispatcher|
+|---|---|---|
+|依頼のしかた|特定の相手に処理を頼む。シンプル|起きた事実を通知する|
+|Characterが知る相手の関数|知っている|受信側の具体的な関数は知らない|
+|受信先を追加するとき|呼び出し元を変更する場合がある|受信側がDispatcherへBindする|
+|通知先がないとき|相手の参照を確認する|Bind先がなければCallしても何も起動しない。ゲーム進行が成功するとは限らない|
+
+この通知方式で外せるのは、**HP変更処理から特定HUDの更新関数への依存**です。直接呼び出しが間違いということではありません。また、CharacterにHUD生成と鍵表示の関係は残るため、Character全体のHUDクラス依存がなくなるわけではありません。別のHUDクラスへ無修正で差し替えられるとも限りません。
+
+- **直接呼び出し:** この相手に、この処理をしてほしい
+- **Event Dispatcher:** こんな出来事が起きました！
 
 <Reference title="Unreal Engine公式ドキュメント">
 
 - [Event Dispatchers](https://dev.epicgames.com/documentation/en-us/unreal-engine/event-dispatchers-in-unreal-engine)
 - [Binding and Unbinding Events](https://dev.epicgames.com/documentation/en-us/unreal-engine/binding-and-unbinding-events-in-unreal-engine)
-- [Creating Dispatcher Events（日本語）](https://dev.epicgames.com/documentation/unreal-engine/creating-dispatcher-events-in-unreal-engine?lang=ja)
+- [デザイナー07：トラップとダメージ（日本語）](https://dev.epicgames.com/documentation/ja-jp/unreal-engine/designer-07-traps-and-damage-in-unreal-engine)
 
 </Reference>
 
