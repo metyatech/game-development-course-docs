@@ -1,152 +1,208 @@
 ---
-title: "GameInstance：レベルを切り替えても値を引き継ぐ"
+title: "GameInstance：レベルを移動しても値を引き継ごう"
 ---
 
-ステージで10点を取って結果画面へ移ったのに、結果画面が0点を表示したら困ります。`Open Level`で別レベルへ移ると、移動先のLevel Blueprintに同じ名前の`Score`を作っても、ステージの値は自動では引き継がれません。
-
-GameInstanceは、ゲーム実行中にレベルをまたいで使える共通の値置き場です。ステージで`Score=10`を書き、結果画面で同じ値を読むと、この困りごとを解決できます。スコアなどプレイ中にレベル間で渡す値に向きますが、レベル移動をまたぐたびに必ず使うものではありません。PIEを停止したりゲームを終了したりすると値は消え、次の実行には残りません。これは`SaveGame`による保存とは別です。
+`Open Level`でレベルを移動しても、Level Blueprintごとの変数は共有されません。**同じゲーム実行中に値を引き継ぐには、GameInstanceに保存します。**
 
 ```text
-変更前: StageのScore=10 → Open Level → ResultのScore=0
-変更後: Stage → GameInstance.Score=10 → Open Level → ResultがGameInstanceから10を取得
+変更前: L_Stage1のScore=10 → Open Level → L_Stage2のScore=0
+変更後: L_Stage1 → GameInstance.Score=10 → Open Level → L_Stage2がGameInstanceから10を読む
 ```
 
-まず変更前の`10→0`を実際に表示し、その後GameInstanceへ書く・読む手順に置き換え、同じPIE中の`10→10`と停止後の`0`を比べます。
+このページでは、まず`10→0`を確かめ、GameInstanceを使う形へ変更して`10→10`を確かめます。PIEを停止して実行し直すと値は初期値へ戻ります。
 
 <Prerequisites>
 
-- Unreal Engine 5.7.4のThird Person（Blueprint）プロジェクトを開いている
-- Level Blueprint、整数変数、Cast、Open Levelの基本操作を使える
+- Unreal Engine 5.7.4のThird Person（Blueprint）テンプレートから新規作成したプロジェクトを開いている
+- Level Blueprintで変数を作り、`BeginPlay`、`Print String`、`Open Level`を使える
 
 </Prerequisites>
 
-<Section title="別々のLevel Blueprint変数を確認する" goal="L_GI_StageのScore=10が、L_GI_Resultでは0になることを見ます。">
+<Section title="レベルを移動すると変数はどうなる？" goal="別々のLevel Blueprint変数は共有されないことを、10と0の表示で確かめます。">
 
-<Action title="2つの作業用レベルを作る">
+### STEP 1｜2つのレベルを作ろう
 
-StageとResultを別々に用意し、値が自動で共有されない状態を作ります。元のThird Personレベルは残します。
+<Action title="新しいBasicレベルを2つ保存する">
 
-Content Drawerに`Lesson9/Maps`フォルダを作ります。元のThird Personレベルを開き、`File`→`Save Current Level As...`で`L_GI_Stage`として保存します。もう一度元のレベルを開き、同じ方法で`L_GI_Result`として保存します。元レベルは残し、以後はこの2つだけを使います。
+元のThird Personレベルを残したまま、空の作業用レベルを2つ作ります。どちらも複製ではなく、`Basic`から新規作成します。
+
+Content Drawerで`Lesson9/Maps`フォルダを作ります。元のThird Personレベルを開いた状態で、メニューから`File`→`New Level`→`Basic`→`Create`を選びます。続けて`File`→`Save Current Level As...`を選び、`Lesson9/Maps`に`L_Stage1`として保存します。
+
+もう一度`File`→`New Level`→`Basic`→`Create`を選び、`Lesson9/Maps`に`L_Stage2`として保存します。元のレベルは上書きしません。
 
 </Action>
 
-<Action title="StageにLevel Blueprint変数を作る">
+<Verify title="2つの別々のレベルがある">
 
-先にStageだけが持つ`Score`へ10を書き、レベルを移動した後に値がどうなるかを表示できるようにします。
+Content Drawerの`Lesson9/Maps`に、別々のレベルアセット`L_Stage1`と`L_Stage2`があり、元のThird Personレベルも残っています。
 
-`L_GI_Stage`の`Level Blueprint`を開き、My Blueprintで整数型変数`Score`を作ります。Compileして初期値が`0`であることを確認します。`Event BeginPlay`の白い実行線から`Set Score`を実行し、値を`10`にします。
+</Verify>
 
-Setの実行出力から`Print String`、`Delay`、`Open Level`を順につなぎます。`Get Score`を`ToString (int)`経由でPrint Stringの`In String`へつなぎ、Delayの`Duration`を`2.0`、Open Levelの`Level Name`を`L_GI_Result`にします。
+### STEP 2｜スコアが引き継がれないことを確認しよう
+
+<Action title="L_Stage1でScoreを10にしてから移動する">
+
+`L_Stage1`を開いて`Level Blueprint`を開き、My Blueprintで整数型のメンバー変数`Score`を作ります。Compileし、初期値が`0`であることを確認します。
+
+`Event BeginPlay`から`Set Score`を実行し、値を`10`にします。`Set Score`の実行出力から`Print String`、`Delay`、`Open Level`の順に白い実行線をつなぎます。`Delay`の`Duration`は`2.0`、`Open Level`の`Level Name`は`L_Stage2`です。
+
+`Get Score`の値出力を`ToString (int)`経由で`Print String`の`In String`につなぎます。`Print String`の`Duration`は`1.8`にし、画面表示を有効にします。`Get Score`と`ToString (int)`は値を渡す純粋ノードなので、白い実行ピンはありません。
 
 ```text
-BeginPlay → Set Score (10) → Print String (Get Score) → Delay (2.0)
-          → Open Level (L_GI_Result)
+白い実行線:
+BeginPlay → Set Score (10) → Print String → Delay (2.0) → Open Level (L_Stage2)
+
+データ線:
+Get Score → ToString (int) → Print String.In String
 ```
 
-`L_GI_Stage`のLevel BlueprintとレベルをCompile/Saveします。
+`L_Stage1`のLevel BlueprintをCompileし、レベルをSaveします。
 
 </Action>
 
-<Action title="Resultにも独立したScoreを作る">
+<Action title="L_Stage2に別のScoreを作る">
 
-Result側にも別の`Score`を作り、Stageの変数と共有されないことを表示で確かめます。
+`L_Stage2`を開いて`Level Blueprint`を開きます。整数型のメンバー変数`Score`を新しく作り、Compileして初期値が`0`であることを確認します。これは`L_Stage1`の`Score`とは別の変数です。
 
-`L_GI_Result`の`Level Blueprint`を開き、整数型変数`Score`を作ります。Compileして初期値が`0`であることを確認します。`Event BeginPlay`の白い実行出力から`Print String`の白い実行入力へ、白い実行線をつなぎます。`Get Score`はLevel Blueprint変数の値を読む純粋ノードで、`ToString (int)`も純粋ノードです。`Get Score`の値出力から`ToString (int)`の入力へ、さらに`Print String`の`In String`へデータ線をつなぎます。この2つの純粋ノードに白い実行ピンはありません。PlayするとResultの`Score`初期値`0`が表示されます。ResultのLevel BlueprintとレベルをCompile/Saveします。
+`Event BeginPlay`から`Print String`へ白い実行線をつなぎます。`L_Stage2`側の`Get Score`から`ToString (int)`を経由して`Print String`の`In String`へデータ線をつなぎ、`Print String`の`Duration`を`5.0`にします。画面表示も有効にします。2つの純粋ノードに白い実行ピンはありません。
+
+Level BlueprintをCompileし、レベルをSaveします。
 
 </Action>
 
-<Verify title="Level Blueprintごとに値が分かれる">
+<Verify title="10のあとに0が表示される">
 
-`L_GI_Stage`からPlayします。Stageで`10`が表示され、2秒後にResultへ移動して`0`が表示されます。先にこの違いを見るのは、同じ名前でも各Level Blueprintが別々の変数を持ち、値を引き継がないことを確かめるためです。
+`L_Stage1`からPlayします。最初に`10`が表示され、2秒後に`L_Stage2`へ移動すると`0`が表示されます。同じ`Score`という名前でも、それぞれのLevel Blueprintが別のメンバー変数を持つため、自動では値が共有されません。
 
 </Verify>
 
 </Section>
 
-<Section title="GameInstanceに値を置いてレベル間で読む" goal="BP_LessonGameInstanceのScoreを使い、Stageの10をResultへ渡します。">
+<Section title="GameInstanceを使ってスコアを引き継ぐ" goal="BP_LessonGameInstanceのScoreを使い、同じゲーム実行中に10を次のレベルへ渡します。">
 
-<Concept title="GameInstanceが残る範囲">
+<Concept title="GameInstanceが値を保つ範囲">
 
-GameInstanceはゲームの実行中に1つ使われ、レベルを移動しても同じインスタンスが残ります。そのため、別レベルから同じGameInstanceの変数を読み書きできます。エディタでPIEを停止するかゲームを終了すると破棄され、次の実行へ値は保存されません。これはSaveGameによる保存とは異なります。
+GameInstanceは、**1回のゲーム実行中に使われ、`Open Level`でレベルを移動しても残るオブジェクト**です。複数のレベルから同じGameInstanceの変数を読み書きできます。PIEをStopするとその実行が終わり、次のPlayでは新しいGameInstanceが作られます。
 
 </Concept>
 
-<Action title="BP_LessonGameInstanceを作る">
+### STEP 3｜GameInstanceを作ろう
 
-どちらのレベルからも同じ値置き場を使えるようGameInstanceのBlueprintを作り、プロジェクトで実際に使うクラスとして指定します。
+<Action title="GameInstance Blueprintを作ってプロジェクトに設定する">
 
-Content Drawerで`Blueprint Class`を作り、親クラスに`GameInstance`を選びます。名前を`BP_LessonGameInstance`にします。My Blueprintで整数型変数`Score`を作り、初期値を`0`にしてCompile/Saveします。
+Content Drawerで`Lesson9/Blueprints`フォルダを作ります。その中で`Blueprint Class`を作成し、親クラスに`GameInstance`を選び、名前を`BP_LessonGameInstance`にします。
 
-メニューの`Edit`→`Project Settings`→`Maps & Modes`を開き、`Game Instance`欄の`Game Instance Class`に`BP_LessonGameInstance`を指定します。PIE中なら一度Stopします。
+My Blueprintで整数型の`Score`を作り、初期値を`0`にしてCompile/Saveします。
+
+次に`Edit`→`Project Settings`→`Maps & Modes`を開き、`Game Instance`欄の`Game Instance Class`に`BP_LessonGameInstance`を指定します。この設定はプロジェクト全体で使われます。Blueprintを作っただけでは有効になりません。PIE中ならStopしてから設定後にPlayし直します。
 
 </Action>
 
-<Action title="StageからGameInstanceへScoreを書く">
+### STEP 4｜Scoreを別のレベルへ引き継ごう
 
-変更前はStageだけの変数に書いていた10を、レベル移動後も残るGameInstanceへ書くよう置き換えます。
+<Action title="L_Stage1からGameInstanceへScoreを書く">
 
-`L_GI_Stage`のLevel Blueprintを開き、ローカル変数`Score`を使っていたBeginPlayの処理を置き換えます。次の順にノードを置きます。
+`L_Stage1`のLevel Blueprintを開き、前の手順で表示に使ったLevel Blueprintの`Score`は、変数自体を削除せず、これからは読み書きしません。`Event BeginPlay`からGameInstanceをCastし、成功した場合だけ値を書いてレベルを移動する形にします。
 
-1. `Get Game Instance`を単独の純粋ノードとして置きます。このノードに白い実行ピンはありません。
+次の順でノードと線をつなぎます。
+
+1. `Get Game Instance`を置きます。これは値を返す純粋ノードで、白い実行ピンはありません。
 2. `Get Game Instance`の`Return Value`から`Cast To BP_LessonGameInstance`の`Object`へデータ線をつなぎます。
-3. `Event BeginPlay`の白い実行出力からCastの白い実行入力へ、実行線を直接つなぎます。実行線は`Get Game Instance`を通りません。
-4. Cast成功の白い実行出力から`Set Score`を実行します。TargetにはCast成功の`As BP_LessonGameInstance`をつなぎ、値を`10`にします。
-5. Setの実行出力から`Print String`、`Delay`、`Open Level`を順につなぎます。GameInstanceの`Get Score`を`ToString (int)`経由でPrint Stringの`In String`へつなぎ、Delayは`2.0`、`Level Name`は`L_GI_Result`にします。
+3. `Event BeginPlay`の白い実行出力からCastの白い実行入力へ、実行線をつなぎます。実行線は`Get Game Instance`を通りません。
+4. Cast成功の白い実行出力から`Set Score`を実行します。`Target`には`As BP_LessonGameInstance`をつなぎ、値に`10`を設定します。
+5. `Set Score`の実行出力から`Print String`、`Delay`、`Open Level`の順に実行線をつなぎます。Delayは`2.0`、`Open Level`の`Level Name`は`L_Stage2`です。
+6. Castの`As BP_LessonGameInstance`から`Get Score`の`Target`へデータ線をつなぎます。`Get Score`の値出力から`ToString (int)`を経由して、`Print String`の`In String`へデータ線をつなぎます。`Print String`は`Duration`を`1.8`、画面表示を有効にします。
 
 ```text
 白い実行線:
-BeginPlay → Cast To BP_LessonGameInstance →成功→ Set Score (10) → Print Score → Delay (2.0) → Open Level (L_GI_Result)
+BeginPlay → Cast To BP_LessonGameInstance → 成功 → Set Score (10)
+          → Print String → Delay (2.0) → Open Level (L_Stage2)
 
 データ線:
-Get Game Instance.Return Value ──→ Cast.Object
+Get Game Instance.Return Value → Cast.Object
+Cast.As BP_LessonGameInstance → Set Score.Target
+Cast.As BP_LessonGameInstance → Get Score.Target
+Get Score → ToString (int) → Print String.In String
 ```
 
-Castの`Cast Failed`実行ピンから別の`Print String`へつなぎ、`Cast失敗：Maps & ModesのGame Instance Classを確認`と表示させます。Castが失敗すると成功側のSetとOpen Levelは実行されません。
+Castの`Cast Failed`実行出力から別の`Print String`へ実行線をつなぎ、`GameInstanceの設定を確認`と表示します。失敗側から`Set Score`や`Open Level`へ線をつながないため、Castに失敗した場合はレベル移動しません。
 
 </Action>
 
-<Action title="ResultからGameInstanceのScoreを読む">
+<Action title="L_Stage2から同じGameInstanceのScoreを読む">
 
-Result側もローカル変数ではなく、Stageが値を書いた同じGameInstanceから読み取ります。
+`L_Stage2`のLevel Blueprintも、GameInstanceの値を読む形にします。Level Blueprint側の`Score`変数は削除せず、表示には使いません。`Get Game Instance`の`Return Value`から`Cast To BP_LessonGameInstance`の`Object`へデータ線をつなぎ、`Event BeginPlay`からCastへ白い実行線をつなぎます。`Get Game Instance`は純粋ノードなので白い実行ピンはありません。
 
-`L_GI_Result`のLevel Blueprintを開き、純粋ノードの`Get Game Instance`と`Cast To BP_LessonGameInstance`を別々に置きます。`Get Game Instance`に白い実行ピンはありません。`Return Value`からCastの`Object`へデータ線をつなぎ、`Event BeginPlay`の白い実行出力からCastの白い実行入力へ実行線を直接つなぎます。
+Cast成功の実行出力から`Print String`を実行します。`As BP_LessonGameInstance`をTargetにした`Get Score`を`ToString (int)`経由で`Print String`の`In String`へつなぎます。`Print String`の`Duration`は`5.0`、画面表示は有効にします。
 
-Cast成功の白い実行出力から`Print String`を実行します。Castの`As BP_LessonGameInstance`をTargetにした`Get Score`を置き、値を`ToString (int)`経由で`Print String`の`In String`へつなぎます。Cast Failedからは`Print String`へつなぎ、`Cast失敗：Maps & ModesのGame Instance Classを確認`と表示します。Level BlueprintとレベルをCompile/Saveします。
+Castの`Cast Failed`実行出力から、別の`Print String`へ実行線をつなぎ、`GameInstanceの設定を確認`と表示します。Compile/Saveして、Level Blueprintとレベルを保存します。
 
 </Action>
-
-<Verify title="同じPIE中にScore=10を引き継ぐ">
-
-同じPIE実行中に`L_GI_Stage`から`L_GI_Result`へ移動し、レベル移動をまたいだ値を比べます。
-
-- StageではGameInstanceの`Score`に`10`を設定し、表示も`10`になる
-- `L_GI_Result`へ移動したあとも、GameInstanceから読んだ値が`10`になる
-- StageとResultに同名のローカル変数が残っていても、今回の表示はGameInstanceの`Score`から読んでいる
-- PIEをStopしたあと`L_GI_Result`を開いてから新しくPlayすると、まだStageを通っていないため`0`が表示される。GameInstanceは新しく作られ、初期値から始まる
-- そのPIEをStopし、`L_GI_Stage`からPlayすると、Stageで`10`を設定した後にResultでも`10`が表示される
-
-</Verify>
 
 <Recovery title="Cast失敗の表示が出るとき">
 
-`Edit`→`Project Settings`→`Maps & Modes`→`Game Instance`の`Game Instance Class`が`BP_LessonGameInstance`か確認します。設定後はPIEをStopして再実行します。未設定だとCast Failedから先へ進み、`BP_LessonGameInstance`の`Score`へ`10`が書かれず、初期値の`0`のままです。Cast Failedにつないだ`Print String`が設定漏れを知らせます。
+`GameInstanceの設定を確認`が表示されたら、`Edit`→`Project Settings`→`Maps & Modes`→`Game Instance`の`Game Instance Class`が`BP_LessonGameInstance`か確認します。設定後はPIEをStopしてPlayし直します。Cast成功からSet/Getへ続く接続も確認します。
 
 </Recovery>
 
-<Recovery title="Resultに10が表示されないとき">
+<Recovery title="L_Stage2で10が表示されないとき">
 
-- StageのCast成功から`Set Score`を実行し、Targetが`As BP_LessonGameInstance`、値が`10`か確認します。
-- StageとResultの両方で`Get Game Instance`をCastし、Cast成功側から読み書きしているか確認します。
-- `Open Level`の`Level Name`がマップ名と同じ`L_GI_Result`か確認します。名前が違うとResultへ移動しません。
-- 画面に出す`Get Score`のTargetがLevel Blueprintのローカル変数ではなく、Cast成功の`As BP_LessonGameInstance`か確認します。
+- `L_Stage1`ではCast成功から`Set Score`が実行され、`Target`が`As BP_LessonGameInstance`、値が`10`か確認します。
+- 両方のレベルで`Get Game Instance.Return Value`がCastの`Object`につながり、Cast成功の`As BP_LessonGameInstance`がGet/SetのTargetになっているか確認します。
+- `Open Level`の`Level Name`が`L_Stage2`か確認します。名前が違うと移動先が異なります。
+- 表示に使う`Get Score`のTargetが、Level Blueprintのメンバー変数ではなくGameInstanceか確認します。
 
 </Recovery>
+
+<Verify title="同じPIE中に10を引き継ぐ">
+
+`L_Stage1`からPlayし、`L_Stage1`で`10`、`L_Stage2`へ移動したあとも`10`が表示されます。両方の表示がGameInstanceの`Score`を使っていることを確認します。
+
+</Verify>
 
 <Reference title="Unreal Engine公式ドキュメント">
 
-- [Gameplay Framework: Game Instance](https://dev.epicgames.com/documentation/unreal-engine/gameplay-framework-in-unreal-engine)
-- [Project Settings: Maps & Modes](https://dev.epicgames.com/documentation/unreal-engine/project-section-of-the-unreal-engine-project-settings)
+- [Gameplay Framework](https://dev.epicgames.com/documentation/unreal-engine/gameplay-framework-in-unreal-engine)
+- [Working with Levels](https://dev.epicgames.com/documentation/unreal-engine/working-with-levels-in-unreal-engine?lang=en-US)
+- [Project Settings: Maps & Modes](https://dev.epicgames.com/documentation/unreal-engine/project-section-of-the-unreal-engine-project-settings?lang=en-US)
 
 </Reference>
+
+</Section>
+
+<Section title="GameInstanceはいつまで残る？" goal="PIE停止後は値が初期化されることを確認し、レベル間の一時的な値と保存データを区別します。">
+
+### STEP 5｜ゲームを終了したらどうなる？
+
+<Action title="L_Stage2から新しくPlayする">
+
+PIEをStopし、エディタで`L_Stage2`を開きます。その状態からPlayします。新しいGameInstanceには`L_Stage1`から値を書いていないため、`L_Stage2`には初期値の`0`が表示されます。
+
+</Action>
+
+<Action title="L_Stage1からPlayして10を渡す">
+
+PIEをStopし、`L_Stage1`を開いてPlayします。`L_Stage1`で`10`を設定し、`L_Stage2`へ移動した後も`10`が表示されることを確認します。
+
+</Action>
+
+<Verify title="PIEの開始位置で表示が変わる">
+
+- `L_Stage2`から新しくPlayすると`0`が表示される
+- Stopして`L_Stage1`からPlayすると、`L_Stage1`と`L_Stage2`の両方で`10`が表示される
+
+</Verify>
+
+<Concept title="値の寿命に合わせて置き場所を選ぶ">
+
+どの値もGameInstanceに移す必要はありません。**レベル内だけで使う値はLevel Blueprint、同じ実行中にレベルをまたぐ値はGameInstance、実行終了後も残すデータはSaveGame**というように、必要な期間に合わせて選びます。SaveGameは保存と読み込みを実装したときに永続化されます。この手順ではSaveGameを作りません。
+
+|置き場所|値を使える範囲|このページでの例|
+|---|---|---|
+|Level Blueprintのメンバー変数|そのLevel Blueprintを使うレベル内|変更前の各レベルの`Score`|
+|GameInstance|同じゲーム実行中のレベル間。PIE Stopで終了|`L_Stage1`から`L_Stage2`へ渡す`Score`|
+|SaveGame|保存・読み込みを実装した後は、実行をまたいで利用可能|今回は実装しない|
+
+</Concept>
 
 </Section>
